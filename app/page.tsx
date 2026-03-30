@@ -60,6 +60,11 @@ export default function Home() {
     setTodos(updateTodo)
   }
 
+  // Complete Todo
+  const handleComplete = () => {
+    
+  }
+
 
   // handleEdit
   const handleEdit = (todo: any) => {

@@ -13,12 +13,18 @@ export default function TodoItem ({todo, handleDelete, handleEdit}:any){
     } : undefined
     return(
         <div ref={setNodeRef} style={style}  {...listeners} {...attributes}
-         className="bg-gray-200 p-3  rounded-lg mb-2 flex justify-between cursor-grab active:cursor-grabbing"
-    >
-      <span>{todo.text}</span>
+         className="bg-gray-200 p-3  rounded-lg mb-2 flex justify-between ">
+            {/* cursor-grab active:cursor-grabbing */}
+            <div  className="flex  items-center justify-center gap-2 ">
+          <input 
+  type="radio" 
+  className="appearance-none w-5 h-5 border-2 border-gray-400 rounded-full checked:bg-teal-400 checked:border-white cursor-pointer"/>
+
+            <span>{todo.text}</span>
+            </div>
 
         <div className="flex items-center gap-2">
-                  <Pencil className="w-5 text-primary  cursor-pointer" 
+                  <Pencil className="w-5 text-violet-600  cursor-pointer" 
                 onClick={() => handleEdit(todo)} />
                 <Trash className="w-5 text-red-500  cursor-pointer"
                  onClick={() => handleDelete(todo.id)}/>

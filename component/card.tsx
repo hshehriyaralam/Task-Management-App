@@ -7,6 +7,10 @@ import TodoItem from './todoItem';
 export default function Card({ todo, cat, handleDelete, handleEdit, DeleteCategory }: any) {
   const { setNodeRef } = useDroppable({ id: cat })
 
+
+
+  
+
   return (
     <div ref={setNodeRef}>
       <div className="bg-gray-100 p-3 rounded-2xl shadow-lg h-[300px] flex flex-col">
