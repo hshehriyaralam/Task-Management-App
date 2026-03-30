@@ -16,9 +16,7 @@ export default function SortableCard({cat, children}:any){
   style={style}
   {...(listeners || {})}
   {...(attributes || {})}
-  className="min-w-[300px]
-  ">
-      {/* cursor-grab */}
+  className="min-w-[320px] cursor-grab ">
 
 
         {children}

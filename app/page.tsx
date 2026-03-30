@@ -164,7 +164,7 @@ export default function Home() {
 const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 8, // 🔥 important (5–10 best)
+      distance: 8, 
     },
   })
 )
@@ -225,7 +225,7 @@ const sensors = useSensors(
           <SortableContext
             items={categories}
             strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-4 min-w-max overflow-x-auto ">
+            <div className="flex gap-4 min-w-max overflow-x-auto  items-center justify-start gap-8 ">
               {categories.map(cat => (
                 <SortableCard key={cat} cat={cat}>
                   <Card
