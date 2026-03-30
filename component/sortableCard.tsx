@@ -11,12 +11,16 @@ export default function SortableCard({cat, children}:any){
   transition
 }
     return(
-        <div
+        <div 
          ref={setNodeRef}
   style={style}
   {...(listeners || {})}
   {...(attributes || {})}
-  className="min-w-[300px] cursor-grab">
+  className="min-w-[300px]
+  ">
+      {/* cursor-grab */}
+
+
         {children}
         </div>
     )

@@ -3,19 +3,14 @@ import { useState } from "react";
 import { CircleX } from 'lucide-react';
 import Card from "@/component/card";
 import type { TodosTypes } from "@/type/todo"
-import { DndContext } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities"
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  arrayMove
-} from "@dnd-kit/sortable"
+import { DndContext,useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
+import {  SortableContext,  horizontalListSortingStrategy,} from "@dnd-kit/sortable"
 import dynamic from "next/dynamic"
-
 
 const SortableCard = dynamic(() => import("@/component/sortableCard"), {
   ssr: false
 })
+
 
 
 
@@ -114,6 +109,10 @@ export default function Home() {
 
   // Delete Category 
   const DeleteCategory = (cat: any) => {
+    if(categories.length === 1){
+      alert("last card was not delete")
+      return
+    }
 
     // remove category 
     const updateCategories = categories.filter((c) => c !== cat)
@@ -162,16 +161,26 @@ export default function Home() {
   )
 }
 
+const sensors = useSensors(
+  useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8, // 🔥 important (5–10 best)
+    },
+  })
+)
+
+
 
   return (
     <div className="min-h-screen bg-mist-300 p-6 font-quicksand " >
       <div className="max-w-5xl mx-auto" >
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-700  ">Todo App</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center text-gray-700  ">Task Management Application</h1>
 
         <form
           onSubmit={handleAdd}
           className="bg-gray-100 p-4 rounded-2xl shadow-lg flex flex-col md:flex-row gap-3 mb-6  ">
           <input
+          required
             type="text"
             placeholder="Enter your task..."
             value={todo}
@@ -198,6 +207,7 @@ export default function Home() {
           </button>
 
           <button
+          type="button"
             onClick={() => setShowModal(true)}
             className="bg-primary  cursor-pointer  hover:bg-primary/90 
              text-white px-3 py-2 text-md  rounded-xl font-medium ">
@@ -208,12 +218,14 @@ export default function Home() {
 
 
         {/* cards */}
-        <DndContext onDragEnd={handleDragEnd}>
+        <div  className="overflow-x-auto pb-4 ">  
+        <DndContext
+        sensors={sensors}
+        onDragEnd={handleDragEnd}>
           <SortableContext
             items={categories}
             strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-4 ">
-              {/* overflow-x-auto */}
+            <div className="flex gap-4 min-w-max overflow-x-auto ">
               {categories.map(cat => (
                 <SortableCard key={cat} cat={cat}>
                   <Card
@@ -228,6 +240,8 @@ export default function Home() {
             </div>
           </SortableContext>
         </DndContext>
+        </div>
+
       </div>
 
 
@@ -256,15 +270,16 @@ export default function Home() {
               className="w-6 cursor-pointer text-red-500  justify-self-end " />
 
             <h2 className="font-bold text-gray-800 mb-3 text-center text-xl">Add More Category</h2>
+
             <form onSubmit={handleAddCategories}>
               <div className="flex items-center justify-center gap-2   mb-4 ">
                 <input
+                  required
                   type="text"
                   placeholder="Enter New Category "
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   className="px-6 py-2 rounded-xl bg-gray-200 outline-none text-gray-800 " />
-
               </div>
 
               {/* Button Update & Cancell */}
