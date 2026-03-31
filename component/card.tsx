@@ -1,10 +1,7 @@
 "use client"
 import { useDroppable } from '@dnd-kit/core';
 import TodoItem from './todoItem';
-
-
-
-export default function Card({ todo, cat, handleDelete, handleEdit, DeleteCategory }: any) {
+export default function Card({ todo, cat, handleDelete, handleEdit, DeleteCategory, handleCompleteTodo}: any) {
   const { setNodeRef } = useDroppable({ id: cat })
 
 
@@ -13,13 +10,13 @@ export default function Card({ todo, cat, handleDelete, handleEdit, DeleteCatego
 
   return (
     <div ref={setNodeRef}>
-      <div className="bg-gray-100 p-3 rounded-2xl shadow-lg h-[300px] flex flex-col">
+      <div className="bg-gray-100 p-3 rounded-2xl shadow-lg h-[350px] flex flex-col  ">
         <h2 className="text-xl font-bold my-3 text-center text-emerald-500">
           {cat.toUpperCase()}
         </h2>
 
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-scroll scrollbar ">
           {todo.length === 0 ? (
             <p className="text-gray-700 font-medium mx-4">No tasks</p>
           ) : (
@@ -29,13 +26,15 @@ export default function Card({ todo, cat, handleDelete, handleEdit, DeleteCatego
                 todo={todo}
                 handleDelete={handleDelete}
                 handleEdit={handleEdit}
+                handleCompleteTodo={handleCompleteTodo}
               />
             ))
           )}
         </div>
 
-        <div className="flex justify-end ">
+        <div className="flex justify-end    bg-gray-100 py-2 ">
           <button
+          title='Delete Category'
             onClick={(e) => {
               e.stopPropagation()
               DeleteCategory(cat)

@@ -2,5 +2,7 @@
 export type TodosTypes = {
   id: number,
   text: string,
-  category: string
+  category: string,
+  isComplete :  boolean
+
 }

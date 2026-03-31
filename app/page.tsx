@@ -6,6 +6,9 @@ import type { TodosTypes } from "@/type/todo"
 import { DndContext,useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
 import {  SortableContext,  horizontalListSortingStrategy,} from "@dnd-kit/sortable"
 import dynamic from "next/dynamic"
+import './globals.css'
+
+
 
 const SortableCard = dynamic(() => import("@/component/sortableCard"), {
   ssr: false
@@ -46,7 +49,8 @@ export default function Home() {
     const newTodo = {
       id: Date.now(),
       text: todo,
-      category: category
+      category: category,
+      isComplete : false
     }
 
     setTodos([...todos, newTodo])
@@ -61,16 +65,26 @@ export default function Home() {
   }
 
   // Complete Todo
-  const handleComplete = () => {
-    
+  const handleCompleteTodo= (id:number) => {
+   const updateComplete = todos.map(todo => {
+      if (id === todo.id) {
+        return {
+          ...todo,
+          isComplete: !todo.isComplete
+        }
+      }
+      return todo
+    })
+    setTodos(updateComplete)
   }
 
 
-  // handleEdit
+  // show Edit Modal
   const handleEdit = (todo: any) => {
     setIsOpen(true)
     setEditTodoId(todo.id)
     setEditText(todo.text)
+    setTodo("")
   }
 
 
@@ -177,7 +191,7 @@ const sensors = useSensors(
 
 
   return (
-    <div className="min-h-screen bg-mist-300 p-6 font-quicksand " >
+    <div className="min-h-screen bg-gray-300 p-6 font-quicksand " >
       <div className="max-w-5xl mx-auto" >
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-700  ">Task Management Application</h1>
 
@@ -206,31 +220,35 @@ const sensors = useSensors(
 
           <button
             type="submit"
-            className="bg-primary  cursor-pointer  hover:bg-primary/80  text-white px-3 py-2 
-            rounded-xl font-medium   text-md  flex  items-center justify-between gap-1 ">
-            add Todo
+            className="bg-primary  cursor-pointer  hover:bg-primary/90  text-white px-3 py-2 
+            rounded-xl font-medium   text-md  ">
+            Add Todo
           </button>
 
           <button
           type="button"
-            onClick={() => setShowModal(true)}
-            className="bg-primary  cursor-pointer  hover:bg-primary/90 
-             text-white px-3 py-2 text-md  rounded-xl font-medium ">
-            add Card
+            onClick={() => {
+              setShowModal(true)
+              setTodo("")
+            }}
+            className="bg-primary  cursor-pointer  hover:bg-primary/9
+            0  text-white px-3 py-2 
+            rounded-xl font-medium   text-md   1 ">
+            Add Card
           </button>
         </form>
 
 
 
         {/* cards */}
-        <div  className="overflow-x-auto pb-4 ">  
+        <div  className="pb-4 overflow-x-scroll scrollbarX">  
         <DndContext
         sensors={sensors}
         onDragEnd={handleDragEnd}>
           <SortableContext
             items={categories}
             strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-4 min-w-max overflow-x-auto  items-center justify-start gap-8 ">
+            <div className="flex gap-4 min-w-max overflow-x-auto  items-center justify-start">
               {categories.map(cat => (
                 <SortableCard key={cat} cat={cat}>
                   <Card
@@ -239,6 +257,7 @@ const sensors = useSensors(
                     handleDelete={handleDelete}
                     handleEdit={handleEdit}
                     DeleteCategory={DeleteCategory}
+                    handleCompleteTodo={handleCompleteTodo}
                   />
                 </SortableCard>
               ))}
@@ -252,8 +271,7 @@ const sensors = useSensors(
 
 
 
-
-
+              
 
 
 

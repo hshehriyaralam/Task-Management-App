@@ -2,15 +2,65 @@
 @import "tailwindcss";
 
 
-
 @theme inline {
    --font-poppins: "Poppins", sans-serif;
    --font-quicksand: "Quicksand", sans-serif;
-
-
-
     --color-primary: #818CF8;
-    
 }
+
+
+
+@layer utilities {
+  .scrollbar::-webkit-scrollbar {
+    width: 14x;
+    height: 6px;
+  }
+
+  .scrollbar::-webkit-scrollbar-track {
+    border-radius: 100vh;
+    background: #F3F4F6;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: #818CF8;
+    border-radius: 100vh;
+    border: 3px solid #f6f7ed;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #818CF8;
+  }
+
+
+  /* x axis */
+.scrollbarX::-webkit-scrollbar {
+    width: 14x;
+    height: 10px; 
+  }
+
+  .scrollbarX::-webkit-scrollbar-track {
+    border-radius: 100vh;
+    background: #d8d6d6;
+
+  }
+
+  .scrollbarX::-webkit-scrollbar-thumb {
+    background: #818CF8;
+    border-radius: 100vh;
+    border: 3px solid 818CF8;
+  }
+
+  .scrollbarX::-webkit-scrollbar-thumb:hover {
+    background: #818CF8;
+  }
+
+
+}
+
+
+
+
+
+
 
 
