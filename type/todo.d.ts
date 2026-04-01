@@ -1,8 +1,8 @@
 
-export type TodosTypes = {
-  id: number,
-  text: string,
-  category: string,
-  isComplete :  boolean
 
+export type TodosCategoriesTypes = {
+  todos: any[] 
+  categories: any[]
 }
+
+

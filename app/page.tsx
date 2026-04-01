@@ -1,7 +1,5 @@
-
-
-
-  import { createClient } from '@/app/lib/supabase/server'
+import { createClient } from '@/app/lib/supabase/server'
+import TodoHome from '@/component/home'
 
 
 
@@ -10,12 +8,17 @@
   const supabase =  await createClient()
 
   const { data : todos } = await supabase.from('todos').select()
-  console.log("todos")
+  const { data : categories } = await supabase.from('categories').select()
+
+  
+ 
+
   return (
-  <div>
-  {todos?.map(todo => (
-  <p key={todo.id}>{todo.task}</p>
-  ))}
-  </div>
+    <div>
+      <TodoHome 
+      todos={todos || []}
+  categories={categories || []}
+      />  
+    </div>
   )
   }
