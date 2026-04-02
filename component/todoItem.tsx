@@ -15,7 +15,7 @@ const handleCompleteTodo = async (id:number) => {
   try{
     if(!id)  return
     await completeTodo(id, {
-      is_complete  : !todo.is
+      is_complete  : !todo.is_complete
     })
   }catch(error){
     alert("Todo not complete ")

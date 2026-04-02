@@ -1,5 +1,5 @@
   "use client"
-  import { useState } from "react";
+  import { useState, useEffect } from "react";
   import { CircleX } from 'lucide-react';
   import Card from "@/component/card";
   import type { TodosCategoriesTypes } from "@/type/todo"
@@ -7,6 +7,7 @@
   import {  SortableContext,  horizontalListSortingStrategy,} from "@dnd-kit/sortable"
   import dynamic from "next/dynamic"
   import { addCategory, addTodo, deleteTodo, updateTodo } from "@/app/(action)/action"
+  import { createClient } from "@/app/lib/supabase/client";
 
 
 
@@ -37,7 +38,9 @@
     // show add Category modal 
     const [showModal, setShowModal] = useState(false)
 
-    
+    // latest State
+    const [todoState, setTodoState] = useState(todos)
+    const [categoryState, setCategoryState] = useState(categories)
 
 
 
@@ -56,11 +59,9 @@
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     await addCategory(formData)
-
-    setCategory('')
     setShowModal(false)
-
-  }
+    setNewCategory("")
+}
 
 
 
@@ -89,14 +90,10 @@
         e.preventDefault()
         try {
           if (!editTodoId) return
-      
-          
           await updateTodo(editTodoId, {
             task: editText
           })
-      
           setIsOpen(false)
-      
         } catch (error) {
           alert("Failed to Update Todo")
         }
@@ -106,34 +103,32 @@
 
 
   // Todo & Category Drag & Drop
-  //   const handleDragEnd = (event: any) => {
-  //   const { active, over } = event
+  
+    const handleDragEnd = (event: any) => {
+    const { active, over } = event
 
-  //   if (!over) return
+    if (!over) return
+    if (categories.includes(active.id)) {
+      const oldIndex = categories.indexOf(active.id)
+      const newIndex = categories.indexOf(over.id)
 
-  //   // 🟢 Case 1: Category drag (card reorder)
-  //   if (categories.includes(active.id)) {
-  //     const oldIndex = categories.indexOf(active.id)
-  //     const newIndex = categories.indexOf(over.id)
+      setCategoryState(prev => {
+        const updated = [...prev]
+        const [moved] = updated.splice(oldIndex, 1)
+        updated.splice(newIndex, 0, moved)
+        return updated
+      })
+      return
+    }
 
-  //     setCategories(prev => {
-  //       const updated = [...prev]
-  //       const [moved] = updated.splice(oldIndex, 1)
-  //       updated.splice(newIndex, 0, moved)
-  //       return updated
-  //     })
-  //     return
-  //   }
-
-  //   // 🔵 Case 2: Todo drag (move between cards)
-  //   setTodos(prev =>
-  //     prev.map(t =>
-  //       t.id === active.id
-  //         ? { ...t, category_id: over.id }
-  //         : t
-  //     )
-  //   )
-  // }
+    setTodoState(prev =>
+      prev.map(t =>
+        t.id === active.id
+          ? { ...t, category_id: over.id }
+          : t
+      )
+    )
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -142,6 +137,84 @@
       },
     })
   )
+
+  useEffect(() => {
+    const supabase = createClient()
+    
+    const channel = supabase
+    .channel("todos-realtime")
+    .on(
+      'postgres_changes',
+      {
+        event : '*',
+        schema: 'public',
+        table: 'todos',
+      },
+      (payload) => {
+        const {eventType , new: newRecord, old} = payload;
+
+        if(eventType === "INSERT"){
+          setTodoState(prev => [...prev, newRecord])
+        }
+         if (eventType === "UPDATE") {
+          setTodoState(prev =>
+            prev.map(t => (t.id === newRecord.id ? newRecord : t))
+          )
+        }
+
+         if (eventType === "DELETE") {
+          setTodoState(prev =>
+            prev.filter(t => t.id !== old.id)
+          )
+        }
+      }
+    )
+    .subscribe()
+
+     return () => {
+    supabase.removeChannel(channel)
+  }
+  }, [])
+
+
+  useEffect(() => {
+  const supabase = createClient()
+
+  const channel = supabase
+    .channel('categories-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'categories',
+      },
+      (payload) => {
+        const { eventType, new: newRecord, old } = payload
+
+        if (eventType === "INSERT") {
+          setCategoryState(prev => [...prev, newRecord])
+        }
+
+        if (eventType === "UPDATE") {
+          setCategoryState(prev =>
+            prev.map(c => (c.id === newRecord.id ? newRecord : c))
+          )
+        }
+
+        if (eventType === "DELETE") {
+          setCategoryState(prev =>
+            prev.filter(c => c.id !== old.id)
+          )
+        }
+      }
+    )
+    .subscribe()
+
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}, [])
 
 
 
@@ -163,7 +236,6 @@
 
             <select
             name="category"
-
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="p-3 rounded-xl bg-gray-200 font-quicksand font-medium  cursor-pointer text-xs    ">
@@ -201,18 +273,18 @@
           <div  className="pb-4 overflow-x-scroll scrollbarX">  
           <DndContext
           sensors={sensors}
-          // onDragEnd={handleDragEnd}
+          onDragEnd={handleDragEnd}
           
           >
             <SortableContext
               items={categories}
               strategy={horizontalListSortingStrategy}>
               <div className="flex gap-4 min-w-max overflow-x-auto  items-center justify-start">
-                {categories.map(cat => (
+                {categoryState.map(cat => (
                   <SortableCard key={cat.id} cat={cat.category}>
                     <Card
                       cat={cat}
-                      todo={todos.filter(t => t.category_id === cat.id)}
+                      todo={todoState.filter(t => t.category_id === cat.id)}
                       handleDelete={handleDelete}
                       handleEdit={handleEdit}
                     />

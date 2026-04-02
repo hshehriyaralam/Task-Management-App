@@ -32,7 +32,7 @@ export async function addTodo(formData: any) {
   const { error } = await supabase.from('todos').insert({
     task: todo,
     is_complete: false,
-    category_id: category_id // ✅ correct field
+    category_id: category_id 
   })
 
   if (error) {
