@@ -10,54 +10,50 @@
 
 
 
+
 @layer utilities {
-  .scrollbar::-webkit-scrollbar {
-    width: 14x;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
     height: 6px;
   }
-
-  .scrollbar::-webkit-scrollbar-track {
-    border-radius: 100vh;
-    background: #F3F4F6;
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
   }
-
-  .scrollbar::-webkit-scrollbar-thumb {
-    background: #818CF8;
-    border-radius: 100vh;
-    border: 3px solid #f6f7ed;
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
   }
-
-  .scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #818CF8;
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
   }
-
-
-  /* x axis */
-.scrollbarX::-webkit-scrollbar {
-    width: 14x;
-    height: 10px; 
-  }
-
-  .scrollbarX::-webkit-scrollbar-track {
-    border-radius: 100vh;
-    background: #d8d6d6;
-
-  }
-
-  .scrollbarX::-webkit-scrollbar-thumb {
-    background: #818CF8;
-    border-radius: 100vh;
-    border: 3px solid 818CF8;
-  }
-
-  .scrollbarX::-webkit-scrollbar-thumb:hover {
-    background: #818CF8;
-  }
-
-
 }
 
-
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
 
 
 

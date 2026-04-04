@@ -23,12 +23,6 @@ export default function Card({ todo, cat, handleDelete, handleEdit }: any) {
                 {cat.category.charAt(0).toUpperCase() + cat.category.slice(1)}
               </h2>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {todo.length} tasks
-              </span>
-
-            </div>
           </div>
         </div>
 

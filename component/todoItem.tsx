@@ -42,9 +42,11 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
           onChange={() => handleCompleteTodo(todo.id)}
           type="checkbox"
           checked={todo.is_complete || false}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-200 cursor-pointer"
+          className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-200 cursor-pointer"
         />
-        <span className={`text-sm text-gray-700 truncate transition-all duration-200 ${todo.is_complete ? 'line-through text-gray-400' : ''}`}>
+        <span className={`text-sm text-gray-700 truncate transition-all duration-200 
+        text-lg font-semibold
+          ${todo.is_complete ? 'line-through text-blue-400' : ''}`}>
           {todo.task}
         </span>
       </div>
@@ -52,17 +54,17 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
       <div className={`flex items-center gap-1 transition-all duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
         <button
           onClick={() => handleEdit(todo)}
-          className="p-1.5 rounded-md hover:bg-gray-100 transition-all duration-200"
+          className="p-2   rounded-md bg-blue-100 transition-all duration-200  cursor-pointer"
           title="Edit task"
         >
-          <Pencil className="w-3.5 h-3.5 text-gray-500 hover:text-blue-600" />
+          <Pencil className="w-4 h-4 text-blue-600  hover:text-blue-500" />
         </button>
         <button
           onClick={() => handleDelete(todo.id)}
-          className="p-1.5 rounded-md hover:bg-red-50 transition-all duration-200"
+          className="p-2 rounded-md bg-red-100 transition-all duration-200 cursor-pointer"
           title="Delete task"
         >
-          <Trash2 className="w-3.5 h-3.5 text-gray-500 hover:text-red-600" />
+          <Trash2 className="w-4 h-4 text-red-600  hover:text-red-500" />
         </button>
       </div>
     </div>

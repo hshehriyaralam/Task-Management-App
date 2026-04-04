@@ -5,34 +5,27 @@ import { createClient } from "../lib/supabase/server"
 
 
 // Add Todo
-// export  async function addTodo(formData : any){
-//     const supabase = await createClient()
-
-//     const todo = formData.get('todo')
-//     const category = formData.get('category')
-
-//  const { error } = await supabase.from('todos').insert({ 
-//     task : todo,
-//     is_complete : false,
-//     category : category
-//   });
-
-//     if (error) {
-//     console.error('Error adding todo:', error);
-//   }
-// }
-
-
 export async function addTodo(formData: any) {
   const supabase = await createClient()
 
   const todo = formData.get('todo')
-  const category_id = Number(formData.get('category')) // 👈 convert to number
+  const category_id = Number(formData.get('category')) 
+
+
+  const {data : ExistingData, error : fetchError} = await supabase.from("todos").select("id").eq('category_id',category_id)
+
+  if (fetchError) {
+    console.error('Error fetching todos:', fetchError)
+    return
+  }
+
+  const position  = ExistingData?.length || 0
 
   const { error } = await supabase.from('todos').insert({
     task: todo,
     is_complete: false,
-    category_id: category_id 
+    category_id: category_id,
+    position : position
   })
 
   if (error) {
@@ -88,8 +81,20 @@ export  async function addCategory(formData : any){
 
     const category = formData.get('category')
 
+
+    const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
+
+      if (fetchError) {
+    console.error('Error fetching categories:', fetchError)
+    return
+  }
+
+  const position = ExistingData?.length || 0
+
+
  const { error } = await supabase.from('categories').insert({ 
-    category : category
+    category : category,
+    position : position
   });
 
     if (error) {

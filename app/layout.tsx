@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Task Flow",
+  title: "TaskFlow",
   description: "Task Flow",
   icons: { icon: "/task.svg" },
 };

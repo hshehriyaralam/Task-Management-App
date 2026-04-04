@@ -9,8 +9,8 @@ import Stats from '@/component/stats'
 
   const supabase =  await createClient()
 
-  const { data : todos } = await supabase.from('todos').select()
-  const { data : categories } = await supabase.from('categories').select()
+  const { data : todos } = await supabase.from('todos').select("*").order('position',{ascending : true})
+  const { data : categories } = await supabase.from('categories').select("*").order('position',{ascending:true})
 
   
  
