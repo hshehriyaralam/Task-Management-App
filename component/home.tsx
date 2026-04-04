@@ -1,6 +1,6 @@
   "use client"
   import { useState, useEffect } from "react";
-  import { CircleX } from 'lucide-react';
+  import { CircleX, LayoutGrid, Plus } from 'lucide-react';
   import Card from "@/component/card";
   import type { TodosCategoriesTypes } from "@/type/todo"
   import { DndContext,useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
@@ -8,6 +8,7 @@
   import dynamic from "next/dynamic"
   import { addCategory, addTodo, deleteTodo, updateTodo } from "@/app/(action)/action"
   import { createClient } from "@/app/lib/supabase/client";
+import Header from "./header";
 
 
 
@@ -219,12 +220,11 @@
 
 
     return (
-      <div className="min-h-screen bg-gray-300 p-6 font-quicksand " >
-        <div className="max-w-5xl mx-auto" >
-          <h1 className="text-3xl font-bold mb-6 text-center text-gray-700  ">Task Management Application</h1>
-
+      <div >
+        <div>
           <form  onSubmit={handleAddTodo}
-            className="bg-gray-100 p-4 rounded-2xl shadow-lg flex flex-col md:flex-row gap-3 mb-6  ">
+            className="mb-8  ">
+              <div  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex  flex-col md:flex-row gap-4">
             <input
             required
             name="todo"
@@ -232,15 +232,17 @@
               placeholder="Enter your task..."
               value={todo}
               onChange={(e) => setTodo(e.target.value)}
-              className="flex-1 p-3 rounded-xl bg-gray-200 outline-none text-gray-800 " />
+              className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2  focus:ring-blue-100 transition-all text-gray-700 placeholder-gray-400 " />
 
             <select
+            title="Select Category"
             name="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="p-3 rounded-xl bg-gray-200 font-quicksand font-medium  cursor-pointer text-xs    ">
+               className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
               {categories.map((cat, index ) => (
-                <option key={index} value={cat.id}>
+                <option   className="text-gray-700"
+                 key={index} value={cat.id}>
                   THIS {cat.category.toUpperCase()}
                 </option>
               ))}
@@ -249,9 +251,9 @@
 
             <button
               type="submit"
-              className="bg-primary  cursor-pointer  hover:bg-primary/90  text-white px-3 py-2 
-              rounded-xl font-medium   text-md  ">
-              Add Todo
+               className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer ">
+              <Plus className="w-4 h-4" />
+              Add Task
             </button>
 
             <button
@@ -260,26 +262,25 @@
                 setShowModal(true)
                 setTodo("")
               }}
-              className="bg-primary  cursor-pointer  hover:bg-primary/90  
-              0  text-white px-3 py-2 
-              rounded-xl font-medium   text-md   1 ">
-              Add Card
+              className="px-4 py-1.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer  hover:bg-primary/10 ">
+              <LayoutGrid className="w-4 h-4" />
+              New Board
+
             </button>
+              </div>
           </form>
 
 
 
           {/* cards */}
-          <div  className="pb-4 overflow-x-scroll scrollbarX">  
+          <div  className="pb-4">  
           <DndContext
           sensors={sensors}
-          onDragEnd={handleDragEnd}
-          
-          >
+          onDragEnd={handleDragEnd}>
             <SortableContext
               items={categories}
               strategy={horizontalListSortingStrategy}>
-              <div className="flex gap-4 min-w-max overflow-x-auto  items-center justify-start">
+              <div className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
                 {categoryState.map(cat => (
                   <SortableCard key={cat.id} cat={cat.category}>
                     <Card
