@@ -100,100 +100,104 @@
       }
 
 
+ const handleDragEnd = async (event: any) => {
+  const { active, over } = event
+  if (!over) return
+
+  const supabase = await createClient()
+
+  const activeId = active.id
+  const overId = over.id
 
 
-  // Todo & Category Drag & Drop
-  
-  //   const handleDragEnd = (event: any) => {
-  //   const { active, over } = event
+  const isCategoryDrag = categoryState.some(c => c.id === activeId)
 
-  //   if (!over) return
-  //   if (categories.includes(active.id)) {
-  //     const oldIndex = categories.indexOf(active.id)
-  //     const newIndex = categories.indexOf(over.id)
+  if (isCategoryDrag) {
+    const oldIndex = categoryState.findIndex(c => c.id === activeId)
+    const newIndex = categoryState.findIndex(c => c.id === overId)
 
-  //     setCategoryState(prev => {
-  //       const updated = [...prev]
-  //       const [moved] = updated.splice(oldIndex, 1)
-  //       updated.splice(newIndex, 0, moved)
-  //       return updated
-  //     })
-  //     return
-  //   }
+    if (oldIndex === newIndex) return
 
-  //   setTodoState(prev =>
-  //     prev.map(t =>
-  //       t.id === active.id
-  //         ? { ...t, category_id: over.id }
-  //         : t
-  //     )
-  //   )
-  // }
+    const reordered = [...categoryState]
+    const [moved] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, moved)
 
+   
+    setCategoryState(reordered)
 
-  const handleDragEnd = async (event:any) => {
-    const {active, over} = event
-    if(!over) return
+    
+    const updatedCategories = reordered.map((cat, index) => ({
+      ...cat,
+      position: index
+    }))
 
-    const supabase = await createClient()
+    const { error } = await supabase
+      .from("categories")
+      .upsert(updatedCategories)
+
+    if (error) {
+      console.error("Category reorder error:", error)
+    }
+
+    return
+  }
 
 
-    const activeId = active.id
-    const overId = over.id
+  const dragged = todoState.find(t => t.id === activeId)
+  if (!dragged) return
 
-    const dragged = todoState.find(t => t.id === activeId)
-    if ( !dragged) return 
+  const newCategoryId = overId
 
-    // for move to another category 
-    const newCategoryId = over.data.current?.categoryId || dragged.category_id
+  // move to another category
+  if (dragged.category_id !== newCategoryId) {
+    const targetTodos = todoState.filter(t => t.category_id === newCategoryId)
+    const newPosition = targetTodos.length
 
-    if (newCategoryId && dragged.category_id !== newCategoryId) {
+    setTodoState(prev =>
+      prev.map(t =>
+        t.id === activeId
+          ? { ...t, category_id: newCategoryId, position: newPosition }
+          : t
+      )
+    )
 
-  // UI update
+    await supabase
+      .from('todos')
+      .update({
+        category_id: newCategoryId,
+        position: newPosition
+      })
+      .eq('id', activeId)
+
+    return
+  }
+
+  // reorder
+  const sameTodos = todoState.filter(t => t.category_id === dragged.category_id)
+
+  const oldIndex = sameTodos.findIndex(t => t.id === activeId)
+  const newIndex = sameTodos.findIndex(t => t.id === overId)
+
+  const reordered = [...sameTodos]
+  const [moved] = reordered.splice(oldIndex, 1)
+  reordered.splice(newIndex, 0, moved)
+
+  const updated = reordered.map((t, index) => ({
+    ...t,
+    position: index
+  }))
+
   setTodoState(prev =>
     prev.map(t =>
-      t.id === activeId
-        ? { ...t, category_id: newCategoryId }
+      t.category_id === dragged.category_id
+        ? updated.find(u => u.id === t.id) || t
         : t
     )
   )
 
-  // DB update
-  await supabase
-    .from('todos')
-    .update({
-      category_id: newCategoryId,
-      position: 0   // optional: top pe bhej do
-    })
-    .eq('id', activeId)
-
-  return
+  await supabase.from('todos').upsert(updated)
 }
 
-    // for todos reorder
-    const sameTodos = todoState.filter(t => t.category_id === dragged.category_id)
-    const oldIndex = sameTodos.findIndex(t => t.id === activeId)
-    const newIndex = sameTodos.findIndex(t => t.id === overId)
-
-    const reorder = [...sameTodos]
-    const [moved] = reorder.splice(oldIndex ,1)
-    reorder.splice(newIndex, 0, moved)
-
-    const update = reorder.map((t:any, index:number) => ({
-      ...t,
-      position : index
-    }) )
-
-     setTodoState(prev =>
-    prev.map(t =>
-      t.category_id === dragged.category_id
-        ? update.find(u => u.id === t.id) || t
-        : t
-    )
-  )
-
-    await supabase.from('todos').upsert(update)
-  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -353,6 +357,7 @@
           todo={todoState
             .filter(t => t.category_id === cat.id)
             .sort((a, b) => a.position - b.position)}
+            categories={categoryState}
           handleDelete={handleDelete}
           handleEdit={handleEdit}
         />

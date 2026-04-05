@@ -2,18 +2,34 @@
 import { useDroppable } from '@dnd-kit/core';
 import TodoItem from './todoItem';
 import { deleteCategory } from '@/app/(action)/action';
-import { Trash2, MoreHorizontal } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export default function Card({ todo, cat, handleDelete, handleEdit }: any) {
+
+export default function Card({ todo, cat, categories, handleDelete, handleEdit }: any) {
   const { setNodeRef, isOver } = useDroppable({ id: cat.id })
-  const [showMenu, setShowMenu] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
- 
+ const handleDeleteCategory = async () => {
+  if(categories.length === 1) {
+    setErrorMsg("Last category cannot be deleted")
+    return
+  }
+  await deleteCategory(cat.id)
+}
+
+useEffect(() => {
+  if (!errorMsg) return
+
+  const timer = setTimeout(() => {
+    setErrorMsg("")
+  }, 2000)
+
+  return () => clearTimeout(timer)
+}, [errorMsg])
 
   return (
     <div ref={setNodeRef} className={`transition-all duration-200 ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50 rounded-xl' : ''}`}>
-      <div className="w-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+      <div className="w-[300px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
         
         {/* Card Header */}
         <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
@@ -48,17 +64,22 @@ export default function Card({ todo, cat, handleDelete, handleEdit }: any) {
           {/* Card Footer */}
           <div className="p-3 border-t border-gray-100 bg-gray-50">
             <button
-              onClick={() => {
-                        deleteCategory(cat.id)
-                        setShowMenu(false) }}
+              onClick={handleDeleteCategory}
             title='Delete Card'
-            className='bg-red-500 w-full py-2 rounded-xl text-white cursor-pointer  font-semibold  '
+            className='bg-red-500 w-full py-1.5 rounded-xl text-white cursor-pointer  font-semibold  '
             >
               Delete Card
             </button>
           </div>
         </div>
       </div>
+
+
+      {errorMsg && (
+  <div className="fixed top-50 right-150 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fadeIn">
+    {errorMsg}
+  </div>
+)}
     </div>
   )
 }

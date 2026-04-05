@@ -29,13 +29,18 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
 
   return (
     <div
+    {...listeners} {...attributes}
       ref={setNodeRef}
       style={style}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      {...listeners} {...attributes} 
-      className={`bg-white rounded-lg border border-gray-100 p-2.5 flex items-center justify-between group transition-all duration-200 ${isDragging ? 'shadow-lg cursor-grabbing' : 'hover:shadow-sm cursor-grab'} `}
+      className={`bg-white rounded-lg border border-gray-100 p-2
+        flex items-center justify-between group transition-all duration-200 
+        `}
     >
+      {/* <div      className="mx-2  cursor-grab"  >
+        <GripVertical  className="w-5 h-5 text-blue-900" />
+      </div> */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <input
           title={`${todo.is_complete ? "Mark incomplete" : "Mark complete"}`}

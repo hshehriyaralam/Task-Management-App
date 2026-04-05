@@ -19,7 +19,7 @@ import Stats from '@/component/stats'
     <div  className='min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50  font-quicksand'>
       <div className="max-w-7xl mx-auto p-6 lg:p-8  " >
         <Header />
-        <Stats />
+        <Stats todos={todos} />
       <TodoHome 
       todos={todos || []}
       categories={categories || []}
