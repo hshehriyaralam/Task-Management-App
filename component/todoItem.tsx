@@ -1,11 +1,14 @@
 "use client"
 import completeTodo from "@/app/(action)/action";
-import { useDraggable } from "@dnd-kit/core"
+// import { useDraggable } from "@dnd-kit/core"
+import { useSortable } from "@dnd-kit/sortable";
 import { Trash2, Pencil, GripVertical } from 'lucide-react';
 import { useState } from "react";
 
-export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
+export default function TodoItem({ todo, handleDelete, handleEdit, activeTodo }: any) {
   const [isHovered, setIsHovered] = useState(false)
+
+const matchTodo = activeTodo === todo
 
   const handleCompleteTodo = async (id: number) => {
     try {
@@ -18,8 +21,10 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
     }
   }
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: todo.id
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
+   
+    id: todo.id,
+   data: { type: "todo", todo }
   })
 
   const style = transform ? {
@@ -28,6 +33,9 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
   } : undefined
 
   return (
+    <>
+    {
+      !matchTodo && (
     <div
     {...listeners} {...attributes}
       ref={setNodeRef}
@@ -35,13 +43,12 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`bg-white rounded-lg border border-gray-100 p-2
-        flex items-center justify-between group transition-all duration-200 
-        `}
-    >
-      {/* <div      className="mx-2  cursor-grab"  >
-        <GripVertical  className="w-5 h-5 text-blue-900" />
-      </div> */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+        flex items-center justify-between group transition-all duration-200  cursor-grab`}>
+    
+
+
+  
+         <div className="flex items-center gap-2 flex-1 min-w-0">
         <input
           title={`${todo.is_complete ? "Mark incomplete" : "Mark complete"}`}
           onChange={() => handleCompleteTodo(todo.id)}
@@ -55,6 +62,8 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
           {todo.task}
         </span>
       </div>
+ 
+     
 
       <div className={`flex items-center gap-1 transition-all duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
         <button
@@ -73,5 +82,8 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
         </button>
       </div>
     </div>
+      )
+    }
+    </>
   )
 }

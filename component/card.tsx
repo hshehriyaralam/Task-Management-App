@@ -1,12 +1,14 @@
 "use client"
-import { useDroppable } from '@dnd-kit/core';
+import { DndContext, useDroppable } from '@dnd-kit/core';
 import TodoItem from './todoItem';
 import { deleteCategory } from '@/app/(action)/action';
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 
-export default function Card({ todo, cat, categories, handleDelete, handleEdit }: any) {
-  const { setNodeRef, isOver } = useDroppable({ id: cat.id })
+export default function Card({ todo, cat, categories, handleDelete, handleEdit,setShowTaskModal,index, activeTodo }: any) {
+  const { setNodeRef,  } = useDroppable({ id: cat.id, data: { type: "category", category: cat }  })
   const [errorMsg, setErrorMsg] = useState('')
 
  const handleDeleteCategory = async () => {
@@ -28,8 +30,8 @@ useEffect(() => {
 }, [errorMsg])
 
   return (
-    <div ref={setNodeRef} className={`transition-all duration-200 ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50 rounded-xl' : ''}`}>
-      <div className="w-[300px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div ref={setNodeRef} className={`transition-all duration-200  cursor-grab`}>
+      <div className="w-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
         
         {/* Card Header */}
         <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
@@ -50,26 +52,46 @@ useEffect(() => {
                 <div className="text-gray-400 text-sm">No tasks yet</div>
               </div>
             ) : (
-              todo.map((todo: any) => (
-                <TodoItem
+              
+           
+          
+              <SortableContext
+                items={todo.map((t:any) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {
+                todo.map((todo:any )=> (
+                   <TodoItem
                   key={todo.id}
                   todo={todo}
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
+                  activeTodo={activeTodo}
                 />
-              ))
+                ))
+              }
+              </SortableContext>
+          
             )}
+          </div>
+
+          <div className='p-1 flex items-center justify-start mx-3 my-1'>
+            <button
+              onClick={() => setShowTaskModal(true)}
+              className="px-2 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 flex items-center gap-2 justify-center text-sm  cursor-pointer "
+            >
+              <Plus className="w-3 h-3" />
+              Add Task
+            </button>
           </div>
 
           {/* Card Footer */}
           <div className="p-3 border-t border-gray-100 bg-gray-50">
-            <button
-              onClick={handleDeleteCategory}
-            title='Delete Card'
-            className='bg-red-500 w-full py-1.5 rounded-xl text-white cursor-pointer  font-semibold  '
-            >
-              Delete Card
-            </button>
+            {categories.length > 3 && index > 2 && (
+              <button onClick={handleDeleteCategory} className='bg-red-500 w-full py-1.5 rounded-xl text-white font-semibold cursor-pointer'>
+                Delete Card
+              </button>
+            )}
           </div>
         </div>
       </div>
