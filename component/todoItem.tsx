@@ -2,13 +2,14 @@
 import completeTodo from "@/app/(action)/action";
 // import { useDraggable } from "@dnd-kit/core"
 import { useSortable } from "@dnd-kit/sortable";
-import { Trash2, Pencil, GripVertical } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 import { useState } from "react";
 
-export default function TodoItem({ todo, handleDelete, handleEdit, activeTodo }: any) {
+export default function TodoItem({ todo, handleDelete, handleEdit, activeTodo}: any) {
   const [isHovered, setIsHovered] = useState(false)
 
 const matchTodo = activeTodo === todo
+
 
   const handleCompleteTodo = async (id: number) => {
     try {
@@ -24,26 +25,28 @@ const matchTodo = activeTodo === todo
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
    
     id: todo.id,
-   data: { type: "todo", todo }
+   data: { type: "todo", todo: todo }
   })
 
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    opacity: isDragging ? 0.5 : 1,
+ 
   } : undefined
+
+  //    opacity: isDragging ? 0 : 1,
 
   return (
     <>
-    {
-      !matchTodo && (
-    <div
-    {...listeners} {...attributes}
-      ref={setNodeRef}
-      style={style}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`bg-white rounded-lg border border-gray-100 p-2
-        flex items-center justify-between group transition-all duration-200  cursor-grab`}>
+    {!matchTodo && (
+      <div
+  {...listeners}
+  {...attributes}
+  ref={setNodeRef}
+  style={style}
+  className={`bg-white rounded-lg border border-gray-100 p-2
+    flex items-center justify-between group transition-all duration-200 cursor-grab
+  `}
+>
     
 
 
@@ -82,8 +85,11 @@ const matchTodo = activeTodo === todo
         </button>
       </div>
     </div>
-      )
-    }
+       )} 
     </>
   )
 }
+
+
+
+

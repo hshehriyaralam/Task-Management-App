@@ -1,6 +1,6 @@
   "use client"
   import { useState, useEffect, useRef } from "react";
-  import { CircleX, LayoutGrid, Plus } from 'lucide-react';
+  import { CircleX, Droplets, LayoutGrid, LucideSquareCenterlineDashedVertical, Plus } from 'lucide-react';
   import Card from "@/component/card";
   import type { TodosCategoriesTypes } from "@/type/todo"
   import { DndContext,useSensor, useSensors, PointerSensor, DragOverlay } from "@dnd-kit/core";
@@ -17,6 +17,8 @@
     ssr: false
   })
 
+
+  
 
 
 
@@ -47,11 +49,16 @@
 
     const [activeTodo, setActiveTodo] = useState<any | null>(null)
     const [dropTodo, setDropTodo] = useState<any | null>(null)
+  
+  
+    const [dropPreview, setDropPreview] = useState<{
+          categoryId: number
+          index: number
+        } | null>(null)
     
 
+
     
-    const categpryId = categoryState.map(cat => cat.id)
-    console.log(dropTodo)
 
 
 
@@ -135,6 +142,8 @@ const handleDragEnd = async (event: any) => {
     const oldIndex = categoryState.findIndex(c => c.id === activeId)
     const newIndex = categoryState.findIndex(c => c.id === overId)
 
+
+
     setDropTodo(newIndex)
 
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
@@ -173,6 +182,8 @@ const handleDragEnd = async (event: any) => {
   if (isDropOnCategory && dragged.category_id !== overId) {
     const targetTodos = todoState.filter(t => t.category_id === overId)
     const newPosition = targetTodos.length
+    // const previewIndex = dropPreview?.index ?? targetTodos.length
+    // const newPosition = previewIndex
 
     setTodoState(prev =>
       prev.map(t =>
@@ -204,7 +215,9 @@ const handleDragEnd = async (event: any) => {
   if (!sameTodos.some(t => t.id === overId)) return
 
   const oldIndex = sameTodos.findIndex(t => t.id === activeId)
-  const newIndex = sameTodos.findIndex(t => t.id === overId)
+  // const newIndex = sameTodos.findIndex(t => t.id === overId)
+    const newIndex = dropPreview?.index ?? 0
+
 
   if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
 
@@ -264,6 +277,7 @@ const handleDragEnd = async (event: any) => {
             prev.map(t => (t.id === newRecord.id ? newRecord : t))
           )
         }
+      
          if (eventType === "DELETE") {
           setTodoState(prev =>
             prev.filter(t => t.id !== old.id)
@@ -383,12 +397,71 @@ const handleDragEnd = async (event: any) => {
                 setActiveTodo(found || null)
               }}
 
-            onDragEnd={(event: any) => {
-            const {  over } = event;
-            if (!over) return;
-            const overData = over.data.current.categoryId
-            setDropTodo(overData)
-              handleDragEnd(event)}}>
+          
+
+         onDragOver={(event) => {
+  const { over, active } = event
+  if (!over) return
+
+  const overData = over.data.current
+  if (!overData) return
+
+  // =========================
+  // 🔵 TODO HOVER
+  // =========================
+  if (overData.type === "todo") {
+    const categoryId = overData.todo.category_id
+
+    const items = todoState
+      .filter(t => t.category_id === categoryId)
+      .sort((a, b) => a.position - b.position)
+
+    const overIndex = items.findIndex(t => t.id === over.id)
+    if (overIndex === -1) return
+
+    // ✅ SAFE TOP VALUE (NO TS ERROR)
+    const activeTop =
+      active.rect.current.translated?.top ??
+      active.rect.current.initial?.top ??
+      0
+
+    const overMiddle = over.rect.top + over.rect.height / 2
+
+    const isBelow = activeTop > overMiddle
+
+    const index = isBelow ? overIndex + 1 : overIndex
+
+    setDropPreview({
+      categoryId,
+      index
+    })
+  }
+
+  // =========================
+  // 🟡 CATEGORY HOVER
+  // =========================
+  if (overData.type === "category") {
+    const categoryId = overData.category.id
+
+    const todos = todoState
+      .filter(t => t.category_id === categoryId)
+      .sort((a, b) => a.position - b.position)
+
+    setDropPreview({
+      categoryId,
+      index: todos.length
+    })
+  }
+}}
+          
+
+              onDragEnd={(event) => {
+                setDropPreview(null) 
+                handleDragEnd(event) 
+              }}
+          
+          
+          >
 
 
             <SortableContext
@@ -397,7 +470,7 @@ const handleDragEnd = async (event: any) => {
 >
   <div className="flex gap-5 overflow-x-auto pb-4 custom-scrollbar">
     {categoryState.map((cat, index) => (
-      <SortableCard key={cat.id} cat={cat}>
+      <SortableCard key={cat.id} cat={cat}  todo={todo}>
         <Card
           cat={cat}
           todo={todoState
@@ -409,21 +482,21 @@ const handleDragEnd = async (event: any) => {
           handleEdit={handleEdit}
           setShowTaskModal={setShowTaskModal}
           activeTodo={activeTodo}
-
+          dropPreview={dropPreview}
         />
       </SortableCard>
     ))}
   </div>
 </SortableContext>
 
-            <DragOverlay>
-                {activeTodo ? (
-                  <div className="bg-white p-4 border border-gray-100 rounded-xl shadow-xl w-[300px] text-sm text-gray-700 truncate transition-all duration-200 
-                  text-lg font-semibold">
-                    {activeTodo.task}
-                  </div>
-                ) : null}
-              </DragOverlay>
+              <DragOverlay>
+                  {activeTodo ? (
+                    <div className="bg-white p-4 border border-gray-100 rounded-xl shadow-xl w-[300px] text-sm text-gray-700 truncate transition-all duration-200 
+                    text-lg font-semibold">
+                      {activeTodo.task}
+                    </div>
+                  ) : null}
+                </DragOverlay>
           </DndContext>
           </div>
 

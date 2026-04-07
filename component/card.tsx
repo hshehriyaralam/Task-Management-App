@@ -7,9 +7,12 @@ import { Plus } from 'lucide-react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 
 
-export default function Card({ todo, cat, categories, handleDelete, handleEdit,setShowTaskModal,index, activeTodo }: any) {
+export default function Card({ 
+  todo, cat, categories, handleDelete, handleEdit,setShowTaskModal, activeTodo, dropPreview}: any) {
   const { setNodeRef,  } = useDroppable({ id: cat.id, data: { type: "category", category: cat }  })
   const [errorMsg, setErrorMsg] = useState('')
+
+
 
  const handleDeleteCategory = async () => {
   if(categories.length === 1) {
@@ -59,17 +62,54 @@ useEffect(() => {
                 items={todo.map((t:any) => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {
-                todo.map((todo:any )=> (
-                   <TodoItem
-                  key={todo.id}
+                {/* {
+                todo.map((todo:any, index : number )=> (
+                  <div key={todo.id} >
+                    {(dropPreview?.categoryId === cat.id  && dropPreview?.index === index) && (
+                      <div className='w-80 h-10 border border-blue-500 '>
+                        </div>
+                    ) }
+                
+                  <TodoItem
                   todo={todo}
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
-                  activeTodo={activeTodo}
-                />
+                  activeTodo={activeTodo}/>
+
+
+                   {dropPreview?.categoryId === cat.id &&
+                dropPreview.index === todo.length && (
+                  <div className="h-10 border-2 border-blue-400 rounded-md
+                   bg-blue-50 mt-2 transition-all duration-200" />
+                )}
+
+
+                  </div>               
                 ))
-              }
+                
+              }  */}
+
+              {todo.map((t:any , index:number) => (
+                  <div key={t.id}>
+                    {dropPreview?.categoryId === cat.id &&
+                    dropPreview?.index === index && (
+                      <div className="h-10 border-2 border-blue-400 bg-blue-50 rounded-md transition-all" />
+                    )}
+                  <TodoItem
+                  todo={t}
+                  handleDelete={handleDelete}
+                  handleEdit={handleEdit}
+                  activeTodo={activeTodo}/>
+
+                  </div>
+                ))}
+
+               
+                {dropPreview?.categoryId === cat.id &&
+                dropPreview?.index === todo.length && (
+                  <div className="h-10 border-2 border-blue-400 bg-blue-50 rounded-md mt-2 transition-all" />
+                )}
+             
               </SortableContext>
           
             )}
@@ -87,11 +127,11 @@ useEffect(() => {
 
           {/* Card Footer */}
           <div className="p-3 border-t border-gray-100 bg-gray-50">
-            {categories.length > 3 && index > 2 && (
+            {/* {categories.length > 3 && index > 2 && (
               <button onClick={handleDeleteCategory} className='bg-red-500 w-full py-1.5 rounded-xl text-white font-semibold cursor-pointer'>
                 Delete Card
               </button>
-            )}
+            )} */}
           </div>
         </div>
       </div>

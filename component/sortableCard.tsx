@@ -4,11 +4,18 @@ import { useSortable } from "@dnd-kit/sortable"
 
 
 
-export default function SortableCard({cat, children}:any){
-    const {attributes, listeners,setNodeRef,transform, transition, isDragging,} = 
-    useSortable({id : cat.id, data : {categoryId: cat.id }}
+export default function SortableCard({cat, todo, children}:any){
+    const {attributes, listeners,setNodeRef,transform, transition, isDragging} = 
+    useSortable({
+    id : cat.id,
+    data: {
+    type: "category",
+    category: cat
+  }}
       
     )
+
+
   const style = {
     transform: transform ? CSS.Transform.toString(transform) : undefined,
     transition,
