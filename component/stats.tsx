@@ -8,7 +8,7 @@ export default function Stats({todos}:any) {
 
 
   return (
-    <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 ">
+    <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 ">
       {/* Total Task  */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow ">
         <div className="flex items-center justify-between">

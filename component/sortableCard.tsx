@@ -28,8 +28,8 @@ export default function SortableCard({cat, todo, children}:any){
   {...(listeners || {})}
   {...(attributes || {})}
   data-category-id={cat.id}
-   className="min-w-[350px] ">
-    {/* cursor-grab active:cursor-grabbing select-none */}
+   className="min-w-[350px]">
+    {/* cursor-grab active:cursor-grabbing select-nboone */}
         {children}
         </div>
     )

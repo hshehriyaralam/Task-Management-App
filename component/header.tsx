@@ -3,12 +3,11 @@
 
 export default function Header() {
     return (
-        <header  className="mb-6">
-        <div  className="flex items-center justify-between mb-2 "  >
-            <div>
+        <header  className="">
+        <div  className="flex items-center justify-between   mb-2"  >
+            <div >
 
-            <h1  className="text-4xl font-bold text-gray-800 mb-2 ">TaskFlow</h1>
-            <p>Organize your task efficiently </p>
+            <h1  className="text-4xl font-bold text-gray-800">TaskFlow</h1>
             </div>
 
         <div  className="flex items-center gap-2">
