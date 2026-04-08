@@ -1,4 +1,5 @@
 'use server'
+import { getUserId } from "@/lib/getUser"
 import { createClient } from "../lib/supabase/server"
 
 
@@ -7,6 +8,7 @@ import { createClient } from "../lib/supabase/server"
 // Add Todo
 export async function addTodo(formData: any) {
   const supabase = await createClient()
+  const userId = await getUserId()
 
   const todo = formData.get('todo')
   const category_id = Number(formData.get('category')) 
@@ -25,7 +27,8 @@ export async function addTodo(formData: any) {
     task: todo,
     is_complete: false,
     category_id: category_id,
-    position : position
+    position : position,
+    user_id : userId
   })
 
   if (error) {
@@ -80,6 +83,8 @@ export  async function addCategory(formData : any){
     const supabase = await createClient()
 
     const category = formData.get('category')
+    const userId = await  getUserId()
+
 
 
     const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
@@ -92,7 +97,8 @@ export  async function addCategory(formData : any){
   const position = ExistingData?.length || 0
 
 
- const { error } = await supabase.from('categories').insert({ 
+ const { error } = await supabase.from('categories').insert({
+    user_id : userId,
     category : category,
     position : position
   });

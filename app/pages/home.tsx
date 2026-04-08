@@ -1,19 +1,25 @@
 "use client"
 import { useState, useEffect } from "react";
 import { CircleX,  LayoutGrid, Plus } from 'lucide-react';
-import Card from "@/component/card";
+import Card from "@/components/card";
 import type { TodosCategoriesTypes } from "@/type/todo"
 import { DndContext, useSensor, useSensors, PointerSensor, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, } from "@dnd-kit/sortable"
 import dynamic from "next/dynamic"
 import { addCategory, addTodo, deleteTodo, updateTodo } from "@/app/(action)/action"
 import { createClient } from "@/app/lib/supabase/client";
+import { toast } from "sonner"
+import { useRouter } from 'next/navigation'
 
 
 
 
 
-const SortableCard = dynamic(() => import("@/component/sortableCard"), {
+
+
+
+
+const SortableCard = dynamic(() => import("@/components/sortableCard"), {
   ssr: false
 })
 
@@ -23,9 +29,10 @@ const SortableCard = dynamic(() => import("@/component/sortableCard"), {
 
 
 
-export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
+export default function TodoHome({ todos, categories, accessToken,  }: TodosCategoriesTypes) {
   const [todo, setTodo] = useState('')
   const [category, setCategory] = useState<string>("")
+  const router = useRouter()
 
 
   // for edit todo States 
@@ -71,6 +78,7 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     await addTodo(formData)
+    toast.success("Todo Successfully Added",{ position: "top-center" })
     setTodo("")
     setCategory("")
     setShowTaskModal(false)
@@ -82,6 +90,7 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     await addCategory(formData)
+    toast.success("New Card Successfully Added",{ position: "top-center" })
     setShowModal(false)
     setNewCategory("")
   }
@@ -93,6 +102,7 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
   const handleDelete = async (id: number) => {
     try {
       await deleteTodo(id)
+    toast.success("Todo Successfully Deleted",{ position: "top-center" })
     } catch (error) {
       alert("Failed to delete todo.");
     }
@@ -117,6 +127,8 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
         task: editText
       })
       setIsOpen(false)
+    toast.success("Todo Successfully Updated",{ position: "top-center" })
+
     } catch (error) {
       alert("Failed to Update Todo")
     }
@@ -254,6 +266,9 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
     })
   )
 
+
+ 
+
   useEffect(() => {
     const supabase = createClient()
 
@@ -331,6 +346,15 @@ export default function TodoHome({ todos, categories }: TodosCategoriesTypes) {
       supabase.removeChannel(channel)
     }
   }, [])
+
+  useEffect(() => {
+    if(!accessToken ) {
+      router.push('/login')
+    } 
+  },[])
+
+
+
 
 
 

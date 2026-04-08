@@ -1,36 +1,31 @@
 "use client"
-import { DndContext, useDroppable } from '@dnd-kit/core';
+import {  useDroppable } from '@dnd-kit/core';
 import TodoItem from './todoItem';
 import { deleteCategory } from '@/app/(action)/action';
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { toast } from "sonner"
+
 
 
 export default function Card({
   todo, cat, index, categories, handleDelete, handleEdit, setShowTaskModal, activeTodo, dropPreview }: any) {
   const { setNodeRef, } = useDroppable({ id: cat.id, data: { type: "category", category: cat } })
-  const [errorMsg, setErrorMsg] = useState('')
+
 
 
 
   const handleDeleteCategory = async () => {
     if (categories.length === 1) {
-      setErrorMsg("Last category cannot be deleted")
+    toast.error("Last was not delete",{ position: "top-center" })
       return
     }
     await deleteCategory(cat.id)
+    toast.success("Card Successfully Deleted",{ position: "top-center" })
   }
 
-  useEffect(() => {
-    if (!errorMsg) return
 
-    const timer = setTimeout(() => {
-      setErrorMsg("")
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [errorMsg])
 
   return (
     <div ref={setNodeRef} className={`transition-all duration-200  cursor-grab`}>
@@ -107,13 +102,6 @@ export default function Card({
           </div>
         </div>
       </div>
-
-
-      {errorMsg && (
-        <div className="fixed top-50 right-150 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg animate-fadeIn">
-          {errorMsg}
-        </div>
-      )}
     </div>
   )
 }
