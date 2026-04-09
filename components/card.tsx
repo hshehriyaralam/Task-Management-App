@@ -9,10 +9,11 @@ import { toast } from "sonner"
 
 
 export default function Card({
-  todo, cat, index, categories, handleDelete, handleEdit, setShowTaskModal, activeTodo, dropPreview }: any) {
+  todo, cat, index, categories, handleDelete, handleEdit, setShowTaskModal, activeTodo, dropPreview,activeCard }: any) {
   const { setNodeRef, } = useDroppable({ id: cat.id, data: { type: "category", category: cat } })
 
 
+ const isActiveCard = activeCard?.id === cat.id
 
 
   const handleDeleteCategory = async () => {
@@ -27,6 +28,8 @@ export default function Card({
 
 
   return (
+    <>
+    { !isActiveCard  && (   
     <div ref={setNodeRef} className={`transition-all duration-200  cursor-grab`}>
       <div className="w-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
 
@@ -102,5 +105,9 @@ export default function Card({
         </div>
       </div>
     </div>
+   )
+    }
+    
+    </>
   )
 }
