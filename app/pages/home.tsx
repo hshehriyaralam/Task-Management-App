@@ -11,6 +11,8 @@ import { createClient } from "@/app/lib/supabase/client";
 import { toast } from "sonner"
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+
 
 
 
@@ -57,13 +59,22 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
 
   const [activeTodo, setActiveTodo] = useState<any | null>(null)
   const [dropTodo, setDropTodo] = useState<any | null>(null)
-
-
+  
+  
+  
+  
+  const [loading, setLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  
+  
+  
   const [dropPreview, setDropPreview] = useState<{
     categoryId: number
     index: number
   } | null>(null)
-
+  
+  const [activeCard, setActiveCard] = useState<any | null>(null)
+  const [cardDropPreview, setCardDropPreview] = useState<number | null>(null)
 
 
 
@@ -77,11 +88,13 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
   // Add Todo 
   const handleAddTodo = async (e: any) => {
     e.preventDefault()
+    setLoading(true)
     const formData = new FormData(e.currentTarget)
     await addTodo(formData)
     setTodo("")
     setCategory("")
     setShowTaskModal(false)
+    setLoading(false)
     toast.success("Todo Successfully Added",{ position: "top-center" })
   }
 
@@ -89,11 +102,13 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
   // Add  category 
   const handleAddCategory = async (e: any) => {
     e.preventDefault()
+    setLoading(true)
     const formData = new FormData(e.currentTarget)
     await addCategory(formData)
-    toast.success("New Card Successfully Added",{ position: "top-center" })
+    setLoading(false)
     setShowModal(false)
     setNewCategory("")
+    toast.success("New Card Successfully Added",{ position: "top-center" })
   }
 
 
@@ -105,10 +120,9 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
       await deleteTodo(id)
     toast.success("Todo Successfully Deleted",{ position: "top-center" })
     } catch (error) {
-      alert("Failed to delete todo.");
+    toast.error("Failed to delete todo",{ position: "top-center" })
     }
-  }
-
+  } 
 
   // show Edit Modal
   const handleEdit = (todo: any) => {
@@ -123,6 +137,7 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
   const handleUpdate = async (e: any) => {
     e.preventDefault()
     try {
+      setLoading(true)
       if (!editTodoId) return
       await updateTodo(editTodoId, {
         task: editText
@@ -131,6 +146,8 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
       toast.success("Todo Successfully Updated",{ position: "top-center" })
     } catch (error) {
       alert("Failed to Update Todo")
+    }finally{
+      setLoading(false)
     }
   }
 
@@ -388,20 +405,22 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
             </select>
 
 
+
             <button
               type="submit"
-              className="px-3  py-1 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer ">
-              <Plus className="w-4 h-4" />
-              Add Task
+              disabled={loading}
+              className="lg:w-30  lg:py-1 py-2 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer ">
+                {loading ? <Spinner className="size-6" /> : <> 
+                 <Plus className="w-4 h-4  text-gray-200" /> Add Task</>}
             </button>
 
             <button
-              type="button"
+              type="button" 
               onClick={() => {
                 setShowModal(true)
                 setTodo("")
               }}
-              className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer  hover:bg-primary/10 ">
+              className="px-3 lg:py-1 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer  hover:bg-primary/10 ">
               <LayoutGrid className="w-4 h-4" />
               New Board
 
@@ -415,11 +434,32 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
         <div className="">
           <DndContext
             sensors={sensors}
+
+
+
             onDragStart={(event) => {
               const activeId = event.active.id
               const found = todoState.find(t => t.id === activeId)
               setActiveTodo(found || null)
             }}
+
+            //for Card Drag & Drop 
+            // onDragStart={(event) => {
+            //   const activeId = event.active.id
+
+            //   const foundTodo = todoState.find(t => t.id === activeId)
+            //   if (foundTodo) {
+            //     setActiveTodo(foundTodo)
+            //     setActiveCard(null)
+            //     return
+            //   }
+
+            //   const foundCard = categoryState.find(c => c.id === activeId)
+            //   if (foundCard) {
+            //     setActiveCard(foundCard)
+            //     setActiveTodo(null)
+            //   }
+            // }}
 
 
 
@@ -469,24 +509,48 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
                   index: todos.length
                 })
               }
-            }}
 
+              // if (overData?.type === "category") {
+              //     const overIndex = categoryState.findIndex(c => c.id === over.id)
+              //     if (overIndex === -1) return
+              //     const activeTop =
+              //       active.rect.current.translated?.left ??
+              //       active.rect.current.initial?.left ??
+              //       0
+
+              //     const overMiddle = over.rect.left + over.rect.width / 2
+
+              //     const isAfter = activeTop > overMiddle
+
+              //     const index = isAfter ? overIndex + 1 : overIndex
+
+              //     setCardDropPreview(index)
+              //   }
+            }}
 
             onDragEnd={(event) => {
               setDropPreview(null)
               handleDragEnd(event)
             }}
+            // onDragEnd={(event) => {
+            //     setDropPreview(null)
+            //     setCardDropPreview(null)
+            //     setActiveCard(null)
+            //     handleDragEnd(event)
+            //   }}
+            
+            >
 
 
-          >
 
 
             <SortableContext
               items={categoryState.map(c => c.id)}
               strategy={horizontalListSortingStrategy}
             >
-              <div className="flex gap-5 overflow-x-auto custom-scrollbar">
+              {/* <div className="flex gap-5 overflow-x-auto custom-scrollbar">
                 {categoryState.map((cat, index) => (
+
                   <SortableCard key={cat.id} cat={cat} todo={todo}>
                     <Card
                       cat={cat}
@@ -503,6 +567,39 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
                     />
                   </SortableCard>
                 ))}
+              </div> */}
+
+
+              <div className="flex gap-5 overflow-x-auto custom-scrollbar">
+                {categoryState.map((cat, index) => (
+                  <div key={cat.id}>
+                    
+                    {cardDropPreview === index && (
+                      <div className="w-[350px] h-110 border-2 border-blue-400 bg-blue-50 rounded-xl" />
+                    )}
+
+                      <SortableCard key={cat.id} cat={cat} todo={todo}>
+                    <Card
+                      cat={cat}
+                      todo={todoState
+                        .filter(t => t.category_id === cat.id)
+                        .sort((a, b) => a.position - b.position)}
+                      index={index}
+                      categories={categoryState}
+                      handleDelete={handleDelete}
+                      handleEdit={handleEdit}
+                      setShowTaskModal={setShowTaskModal}
+                      activeTodo={activeTodo}
+                      dropPreview={dropPreview}
+                    />
+                  </SortableCard>
+                    
+                  </div>
+                ))}
+
+                {cardDropPreview === categoryState.length && (
+                  <div className="w-[350px]  h-100 border-2 border-red-400 bg-blue-50 rounded-xl" />
+                )}
               </div>
             </SortableContext>
 
@@ -518,13 +615,6 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
         </div>
 
       </div>
-
-
-
-
-
-
-
 
 
       {/* Modals */}
@@ -548,9 +638,11 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
               />
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 transition-all duration-200 text-md  cursor-pointer ">
-                  Create Board
+                  {loading ? <Spinner className="size-6" />  : "Create Board"}
                 </Button>
-                <Button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer ">
+                <Button 
+                disabled={loading}
+                type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer ">
                   Cancel
                 </Button>
               </div>
@@ -578,8 +670,10 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
               />
               <div className="flex gap-3">
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md   transition-all duration-200  cursor-pointer">
-                  Update Task
+                <button
+                disabled={loading}
+                type="submit" className="flex-1 py-2.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md  flex items-center justify-center    transition-all duration-200  cursor-pointer">
+                  {loading ? <Spinner  className="size-6" /> :  'Update Task' }
                 </button>
                 <Button type="button" onClick={() => setIsOpen(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer ">
                   Cancel
@@ -629,10 +723,14 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
 
 
               <div className="flex gap-3">
-                <Button type="submit" className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md transition-all duration-200  cursor-pointer">
-                  Add Task
+                <Button type="submit" className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md transition-all text-center  duration-200  cursor-pointer">
+                
+                  {loading ? <Spinner  className="size-6" /> :  'Add Task' }
+
                 </Button>
-                <Button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer ">
+                <Button 
+                disabled={loading}
+                type="button" onClick={() => setShowTaskModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer ">
                   Cancel
                 </Button>
               </div>

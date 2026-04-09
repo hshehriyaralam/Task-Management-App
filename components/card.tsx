@@ -1,8 +1,7 @@
 "use client"
 import {  useDroppable } from '@dnd-kit/core';
 import TodoItem from './todoItem';
-import { deleteCategory } from '@/app/(action)/action';
-import { useEffect, useState } from 'react';
+import { deleteCategory } from '@/app/(action)/action'
 import { Plus } from 'lucide-react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { toast } from "sonner"
@@ -66,17 +65,17 @@ export default function Card({
                       todo={t}
                       handleDelete={handleDelete}
                       handleEdit={handleEdit}
-                      activeTodo={activeTodo} />
-
+                      activeTodo={activeTodo} 
+                      />
                   </div>
                 ))}
 
 
                 {dropPreview?.categoryId === cat.id &&
                   dropPreview?.index === todo.length && (
-                    <div className="h-10 border-2 border-blue-400 bg-blue-50 rounded-md mt-2 transition-all" />
+                    <div className="h-10 border-2 border-blue-400
+                     bg-blue-50 rounded-md mt-2 transition-all" />
                   )}
-
               </SortableContext>
 
             )}

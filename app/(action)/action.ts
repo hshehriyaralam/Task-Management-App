@@ -81,12 +81,8 @@ export default async function completeTodo(id:number , compeleteTodo : any ){
 // Add Category 
 export  async function addCategory(formData : any){
     const supabase = await createClient()
-
     const category = formData.get('category')
     const userId = await  getUserId()
-
-
-
     const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
 
       if (fetchError) {

@@ -8,9 +8,9 @@ import { useRouter } from 'next/navigation'
 import { Spinner } from "./ui/spinner";
 import { Button } from "./ui/button";
 
-type EmalPasswordProp = {
-  user: User | null;
-};
+// type EmalPasswordProp = {
+//   user: User | null;
+// };
 
 export default function SignUpForm() {
     const router = useRouter()
@@ -44,7 +44,7 @@ export default function SignUpForm() {
       setName("")
       setEmail("");
       setPassword("");
-      toast.success("SignUp Successfully");
+      toast.success("SignUp Successfully", {position : 'top-center'});
       router.push('/login')
       console.log(error?.message);
     } catch (error) {
@@ -55,68 +55,68 @@ export default function SignUpForm() {
   };
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-6">
-      <div className="w-full max-w-sm">
-        <form
-          onSubmit={handleSignUp}
-          className="border border-gray-200 p-6 w-[400px] min-h-[300px] rounded-xl flex flex-col gap-4 "
-        >
-          <h1 className="text-2xl font-bold text-gray-600 text-center ">
-            Sign Up{" "}
-          </h1>
+    <div className="flex min-h-svh w-full items-center justify-center px-4 py-6">
+  <div className="w-full max-w-md">
+    <form
+      onSubmit={handleSignUp}
+      className="border border-gray-200 p-5 sm:p-6 w-full min-h-[300px] rounded-xl flex flex-col gap-4 shadow-sm"
+    >
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-600 text-center">
+        Sign Up
+      </h1>
 
-          <label htmlFor="" className="text-gray-700  font-medium">
-            Name
-          </label>
-          <input
-            value={name}
-            required
-            onChange={(e) => setName(e.target.value)}
-            type="text"
-            placeholder="Enter Your name"
-            className="p-3 px-4  rounded-xl  border  border-gray-200"
-          />
+      <label className="text-gray-700 font-medium text-sm sm:text-base">
+        Name
+      </label>
+      <input
+        value={name}
+        required
+        onChange={(e) => setName(e.target.value)}
+        type="text"
+        placeholder="Enter Your name"
+        className="p-3 px-4 rounded-xl border border-gray-200 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 outline-none"
+      />
 
-          <label htmlFor="" className="text-gray-700  font-medium">
-            Email
-          </label>
-          <input
-            required
+      <label className="text-gray-700 font-medium text-sm sm:text-base">
+        Email
+      </label>
+      <input
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        type="email"
+        placeholder="Enter Your Email"
+        className="p-3 px-4 rounded-xl border border-gray-200 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 outline-none"
+      />
 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            placeholder="Enter Your Email"
-            className="p-3 px-4  rounded-xl  border  border-gray-200"
-          />
+      <label className="text-gray-700 font-medium text-sm sm:text-base">
+        Password
+      </label>
+      <input
+        required
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        type="password"
+        placeholder="Enter your password"
+        className="p-3 px-4 rounded-xl border border-gray-200 text-sm sm:text-base focus:ring-2 focus:ring-blue-500 outline-none"
+      />
 
-          <label htmlFor="" className="text-gray-700  font-medium">
-            Password
-          </label>
-          <input
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="p-3 px-4  rounded-xl  border  border-gray-200 "
-            type="password"
-            placeholder="Enter your password"
-          />
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full  text-md  cursor-pointer bg-secondary  text-white font-semibold py-6 rounded-xl ">
-             {loading ?  <Spinner  className="size-6"/> : "Sign Up" }
-          </Button>
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full text-md   cursor-pointer bg-secondary text-white font-semibold py-5 sm:py-6 rounded-xl"
+      >
+        {loading ? <Spinner className="size-5 sm:size-6" /> : "Sign Up"}
+      </Button>
 
-          <p className="text-gray-500 text-sm font-normal text-center ">
-            Already have an account?{" "}
-            <span className="text-blue-700">
-              {" "}
-              <a href="/login">Login</a>
-            </span>
-          </p>
-        </form>
-      </div>
-    </div>
+      <p className="text-gray-500 text-xs sm:text-sm text-center">
+        Already have an account?{" "}
+        <span className="text-blue-900 font-semibold">
+          <a href="/login">Login</a>
+        </span>
+      </p>
+    </form>
+  </div>
+</div>
   );
 }
