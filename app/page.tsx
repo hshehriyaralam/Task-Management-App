@@ -23,7 +23,6 @@ export default  async   function Page() {
     const userId = user?.id
     const filterTodo = todos?.filter(todo => todo.user_id === userId )
     const filterCategory = categories?.filter(cat => cat.user_id === userId )
-    console.log(filterTodo)
 
 
 
@@ -34,15 +33,9 @@ export default  async   function Page() {
         <Header />
         {/* <Stats todos={todos} />  */}
           <TodoHome
-          
           accessToken={accessToken}
           todos={filterTodo || []}
           categories={filterCategory || []}/> 
-
-
-
-
-
       </div>
     </div>
   )

@@ -85,7 +85,7 @@ export default function Card({
           <div className='p-1 flex items-center justify-start mx-3 my-1'>
             <button
               onClick={() => setShowTaskModal(true)}
-              className="px-2 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 flex items-center gap-2 justify-center text-sm  cursor-pointer "
+              className="px-2 py-1.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 flex items-center gap-2 justify-center text-sm  cursor-pointer "
             >
               <Plus className="w-3 h-3" />
               Add Task

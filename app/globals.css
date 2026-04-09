@@ -9,6 +9,8 @@
    --font-poppins: "Poppins", sans-serif;
    --font-quicksand: "Quicksand", sans-serif;
     --color-primary: #818CF8;
+    --color-secondary: #374151;
+    /* --color-secondary: #1E40AF; */
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
@@ -32,8 +34,6 @@
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
     --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);

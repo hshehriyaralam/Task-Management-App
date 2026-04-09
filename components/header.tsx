@@ -3,6 +3,10 @@ import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from 'next/navigation'
+import { Button } from "./ui/button";
+import { Spinner } from "./ui/spinner";
+import { LogOut } from "lucide-react";
+
 
 
 
@@ -27,18 +31,19 @@ export default function Header() {
 
     }
     return (
-        <header  className="">
+        <header  className="z-50">
         <div  className="flex items-center justify-between   mb-2"  >
             <div >
-
             <h1  className="text-4xl font-bold text-gray-800">TaskFlow</h1>
             </div>
 
         <div  className="flex items-center gap-2">
-            <div  className="bg-white  rounded-xl px-4 py-2 shadow-sm border border-gray-100 font-quicksand font-semibold  cursor-pointer "
+            <Button  className="bg-secondary  flex items-center   rounded-xl  w-30   py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-md  cursor-pointer   "
             onClick={handleLogOut}>
-                {loading ? "loading" : "LogOut"}
-            </div>
+                {loading ? <Spinner /> :  <>LogOut <LogOut  className="w-4 text-gray-200" /></>}
+            </Button>
+
+        
         </div>
         </div>
         </header>

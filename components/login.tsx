@@ -5,11 +5,13 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter } from 'next/navigation'
+import { Button } from "./ui/button";
+import { Spinner } from "./ui/spinner";
 
 
-type EmalPasswordProp = {
-  user: User | null;
-};
+// type EmalPasswordProp = {
+//   user: User | null;
+// };
 
 export default function LoginForm() {
     const router = useRouter()
@@ -30,11 +32,16 @@ export default function LoginForm() {
         email,
         password,
       });
+      if(error){
+      toast.error("Email Or Password does not match", {position : "top-center"});
+      setEmail("")
+      setPassword("")
+      return
+      }
       router.push("/")
       setEmail("");
       setPassword("");
       toast.success("Login Successfully", { position: "top-center" });
-      console.log(error?.message);
     } catch (error) {
       toast.error("Something went wrong");
     } finally {
@@ -58,6 +65,7 @@ export default function LoginForm() {
           </label>
           <input
             value={email}
+            required
             onChange={(e) => setEmail(e.target.value)}
             type="email"
             placeholder="Enter Your Email"
@@ -68,19 +76,20 @@ export default function LoginForm() {
             Password
           </label>
           <input
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="p-3 px-4  rounded-xl  border  border-gray-200 "
             type="password"
             placeholder="Enter your password"
           />
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full  cursor-pointer bg-gray-700 text-white font-semibold py-3 rounded-xl "
+            className="w-full text-md  cursor-pointer bg-secondary text-white font-semibold py-6 rounded-xl "
           >
-            {loading ? "Loading..." : "Login"}
-          </button>
+            {loading ?  <Spinner  className="size-6"/> : "Login" }
+          </Button>
             <p className="text-gray-500 text-sm font-normal text-center ">
             Don't have a account?{" "}
             <span className="text-blue-700">

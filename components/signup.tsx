@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter } from 'next/navigation'
+import { Spinner } from "./ui/spinner";
+import { Button } from "./ui/button";
 
 type EmalPasswordProp = {
   user: User | null;
@@ -36,6 +38,9 @@ export default function SignUpForm() {
           },
         },
       });
+      if(error){
+        toast.error("Something went Wrong", {position : 'top-center'})
+      }
       setName("")
       setEmail("");
       setPassword("");
@@ -65,6 +70,7 @@ export default function SignUpForm() {
           </label>
           <input
             value={name}
+            required
             onChange={(e) => setName(e.target.value)}
             type="text"
             placeholder="Enter Your name"
@@ -75,6 +81,8 @@ export default function SignUpForm() {
             Email
           </label>
           <input
+            required
+
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
@@ -86,19 +94,19 @@ export default function SignUpForm() {
             Password
           </label>
           <input
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="p-3 px-4  rounded-xl  border  border-gray-200 "
             type="password"
             placeholder="Enter your password"
           />
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full  cursor-pointer bg-gray-700 text-white font-semibold py-3 rounded-xl "
-          >
-            {loading ? "Signing Up..." : "Sign Up"}
-          </button>
+            className="w-full  text-md  cursor-pointer bg-secondary  text-white font-semibold py-6 rounded-xl ">
+             {loading ?  <Spinner  className="size-6"/> : "Sign Up" }
+          </Button>
 
           <p className="text-gray-500 text-sm font-normal text-center ">
             Already have an account?{" "}

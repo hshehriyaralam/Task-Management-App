@@ -10,6 +10,7 @@ import { addCategory, addTodo, deleteTodo, updateTodo } from "@/app/(action)/act
 import { createClient } from "@/app/lib/supabase/client";
 import { toast } from "sonner"
 import { useRouter } from 'next/navigation'
+import { Button } from "@/components/ui/button";
 
 
 
@@ -78,10 +79,10 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     await addTodo(formData)
-    toast.success("Todo Successfully Added",{ position: "top-center" })
     setTodo("")
     setCategory("")
     setShowTaskModal(false)
+    toast.success("Todo Successfully Added",{ position: "top-center" })
   }
 
 
@@ -127,8 +128,7 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
         task: editText
       })
       setIsOpen(false)
-    toast.success("Todo Successfully Updated",{ position: "top-center" })
-
+      toast.success("Todo Successfully Updated",{ position: "top-center" })
     } catch (error) {
       alert("Failed to Update Todo")
     }
@@ -267,6 +267,7 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
   )
 
 
+
  
 
   useEffect(() => {
@@ -347,6 +348,7 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
     }
   }, [])
 
+
   useEffect(() => {
     if(!accessToken ) {
       router.push('/login')
@@ -356,10 +358,8 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
 
 
 
-
-
   return (
-    <div >
+    <div>
       <div>
         <form onSubmit={handleAddTodo}
           className="mb-4">
@@ -390,7 +390,7 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
 
             <button
               type="submit"
-              className="px-3  py-1 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer ">
+              className="px-3  py-1 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer ">
               <Plus className="w-4 h-4" />
               Add Task
             </button>
@@ -547,12 +547,12 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
               />
               <div className="flex gap-3">
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all duration-200  cursor-pointer ">
+                <Button type="submit" className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 transition-all duration-200 text-md  cursor-pointer ">
                   Create Board
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 cursor-pointer ">
+                </Button>
+                <Button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer ">
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -578,12 +578,12 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
               />
               <div className="flex gap-3">
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all duration-200  cursor-pointer">
+                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md   transition-all duration-200  cursor-pointer">
                   Update Task
                 </button>
-                <button type="button" onClick={() => setIsOpen(false)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200  cursor-pointer ">
+                <Button type="button" onClick={() => setIsOpen(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer ">
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -629,12 +629,12 @@ export default function TodoHome({ todos, categories, accessToken,  }: TodosCate
 
 
               <div className="flex gap-3">
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-all duration-200  cursor-pointer">
+                <Button type="submit" className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md transition-all duration-200  cursor-pointer">
                   Add Task
-                </button>
-                <button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200  cursor-pointer ">
+                </Button>
+                <Button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer ">
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>
