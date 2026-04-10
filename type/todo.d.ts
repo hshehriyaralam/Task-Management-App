@@ -5,3 +5,10 @@ export type TodosCategoriesTypes = {
 }
 
 
+
+
+export type Container = {
+  id: string
+  title: string
+  items: any[]
+}
