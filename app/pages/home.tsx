@@ -120,6 +120,7 @@ export default function TodoHome({
     const activeId = active.id;
     const overId = over.id;
 
+    
     const activeContainerId = findContainerId(activeId);
     const overContainerId = findContainerId(overId);
 
@@ -130,6 +131,9 @@ export default function TodoHome({
     }
 
     if (activeContainerId === overContainerId) return;
+
+
+    
 
     setContainers((prev) => {
       const activeContainer = prev.find((c) => c.id === activeContainerId);
@@ -159,7 +163,6 @@ export default function TodoHome({
           const overItemIndex = container.items.findIndex(
             (item) => item.id === overId,
           );
-
           if (overItemIndex !== -1) {
             return {
               ...container,
@@ -179,59 +182,6 @@ export default function TodoHome({
     });
   };
 
-  // const handleDragEnd = (event: DragEndEvent) => {
-  //   const { over, active } = event;
-
-  //   if (!over) {
-  //     setActiveId(null);
-  //     return;
-  //   }
-
-  //   const activeContainerId = findContainerId(active.id);
-  //   const overContainerId = findContainerId(over.id);
-
-  //   if (!activeContainerId || !overContainerId) {
-  //     setActiveId(null);
-  //     return;
-  //   }
-
-  //   if (activeContainerId === overContainerId && active.id !== over.id) {
-  //     const containerIndex = containers.findIndex(
-  //       (c) => c.id === activeContainerId,
-  //     );
-
-  //     if (containerIndex === -1) {
-  //       setActiveId(null);
-  //       return;
-  //     }
-
-  //     const container = containers[containerIndex];
-  //     const activeIndex = container.items.findIndex(
-  //       (item) => item.id === active.id,
-  //     );
-  //     const overIndex = container.items.findIndex(
-  //       (item) => item.id === over.id,
-  //     );
-
-  //     if (activeIndex !== -1 && overIndex !== -1) {
-  //       const newItems = arrayMove(container.items, activeIndex, overIndex);
-
-  //       setContainers((containers) => {
-  //         return containers.map((c, i) => {
-  //           if (i === containerIndex) {
-  //             return { ...c, items: newItems };
-  //           }
-  //           return c;
-  //         });
-  //       });
-  //     }
-  //   }
-
-  //   setActiveId(null);
-  // };
-
-
-
   const handleDragEnd = async (event: DragEndEvent) => {
   const { over, active } = event;
 
@@ -239,11 +189,6 @@ export default function TodoHome({
     setActiveId(null);
     return;
   }
-
-
-  const activeId = Number(active.id);
-const overId = Number(over.id);
-
 
   const activeContainerId = findContainerId(active.id);
   const overContainerId = findContainerId(over.id);
@@ -253,8 +198,7 @@ const overId = Number(over.id);
     return;
   }
 
-  // same container reorder
-  if (activeContainerId === overContainerId && activeId !== overId) {
+  if (activeContainerId === overContainerId && active.id !== over.id) {
     const containerIndex = containers.findIndex(
       (c) => c.id === activeContainerId
     );
@@ -267,82 +211,42 @@ const overId = Number(over.id);
     const container = containers[containerIndex];
 
     const activeIndex = container.items.findIndex(
-      (item) => item.id === activeId
+      (item) => item.id === active.id
     );
 
     const overIndex = container.items.findIndex(
-      (item) => item.id === overId
+      (item) => item.id === over.id
     );
 
-    if (activeIndex === -1 || overIndex === -1) {
-      setActiveId(null);
-      return;
-    }
+    
+    if (activeIndex !== -1 && overIndex !== -1) {
+      const newItems = arrayMove(container.items, activeIndex, overIndex);
 
-    const newItems = arrayMove(container.items, activeIndex, overIndex);
-
-    // 1️⃣ UI update first (optimistic)
-    setContainers((prev) =>
-      prev.map((c, i) =>
-        i === containerIndex ? { ...c, items: newItems } : c
-      )
-    );
-
-    // 2️⃣ DB update (positions only)
-    try {
-      await Promise.all(
-        newItems.map((item, index) =>
-          updateTodo(item.id, {
-            position: index,
-            category_id: activeContainerId,
-          })
-        )
-      );
-    } catch (err) {
-      console.error("Position update failed", err);
-    }
-  }
-
-  // cross-container move
-  if (activeContainerId !== overContainerId) {
-    const activeContainer = containers.find(
-      (c) => c.id === activeContainerId
-    );
-
-    if (!activeContainer) return;
-
-    const movedItem = activeContainer.items.find(
-      (i) => i.id === activeId
-    );
-
-    if (!movedItem) return;
-
-    // 1️⃣ UI update
-    setContainers((prev) => {
-      const updated = prev.map((c) => {
-        if (c.id === activeContainerId) {
-          return {
-            ...c,
-            items: c.items.filter((i) => i.id !== active),
-          };
-        }
-
-        if (c.id === overContainerId) {
-          return {
-            ...c,
-            items: [...c.items, { ...movedItem, category_id: overContainerId }],
-          };
-        }
-
-        return c;
+      setContainers((containers) => {
+        return containers.map((c, i) => {
+          if (i === containerIndex) {
+            return { ...c, items: newItems };
+          }
+          return c;
+        });
       });
 
-      return updated;
-    });
 
-     await updateTodo(activeId, {
-        category_id: overContainerId,
-      })
+      
+
+      try {
+        await Promise.all(
+          newItems.map((item, index) =>
+            updateTodo(Number(item.id), {
+              position: index,
+              category_id: Number(activeContainerId),
+            })
+          )
+        );
+      } catch (err) {
+        console.error("DB update failed (reorder)", err);
+      }
+    }
   }
 
   setActiveId(null);
