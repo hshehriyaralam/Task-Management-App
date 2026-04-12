@@ -164,6 +164,7 @@ export default function TodoHome({
             (item) => item.id === overId,
           );
           if (overItemIndex !== -1) {
+            const activeItemCopy = { ...activeItem };
             return {
               ...container,
               items: [
@@ -182,8 +183,9 @@ export default function TodoHome({
     });
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-  const { over, active } = event;
+
+const handleDragEnd = async (event: DragEndEvent) => {
+  const { active, over } = event;
 
   if (!over) {
     setActiveId(null);
@@ -198,42 +200,46 @@ export default function TodoHome({
     return;
   }
 
-  if (activeContainerId === overContainerId && active.id !== over.id) {
-    const containerIndex = containers.findIndex(
-      (c) => c.id === activeContainerId
-    );
+  // 🔥 GET LATEST STATE (IMPORTANT)
+  const latestContainers = [...containers];
 
-    if (containerIndex === -1) {
-      setActiveId(null);
-      return;
-    }
+  const sourceContainer = latestContainers.find(
+    (c) => c.id === activeContainerId
+  );
+  const destinationContainer = latestContainers.find(
+    (c) => c.id === overContainerId
+  );
 
-    const container = containers[containerIndex];
+  if (!sourceContainer || !destinationContainer) {
+    setActiveId(null);
+    return;
+  }
 
-    const activeIndex = container.items.findIndex(
+  // 👉 SAME CONTAINER (REORDER)
+  if (activeContainerId === overContainerId) {
+    const activeIndex = sourceContainer.items.findIndex(
       (item) => item.id === active.id
     );
 
-    const overIndex = container.items.findIndex(
+    const overIndex = sourceContainer.items.findIndex(
       (item) => item.id === over.id
     );
 
-    
     if (activeIndex !== -1 && overIndex !== -1) {
-      const newItems = arrayMove(container.items, activeIndex, overIndex);
+      const newItems = arrayMove(
+        sourceContainer.items,
+        activeIndex,
+        overIndex
+      );
 
-      setContainers((containers) => {
-        return containers.map((c, i) => {
-          if (i === containerIndex) {
-            return { ...c, items: newItems };
-          }
-          return c;
-        });
-      });
+      // UI update
+      setContainers((prev) =>
+        prev.map((c) =>
+          c.id === activeContainerId ? { ...c, items: newItems } : c
+        )
+      );
 
-
-      
-
+      // DB update (batch)
       try {
         await Promise.all(
           newItems.map((item, index) =>
@@ -249,8 +255,112 @@ export default function TodoHome({
     }
   }
 
+  // 👉 DIFFERENT CONTAINER (MOVE)
+  else {
+    const movedItem = sourceContainer.items.find(
+      (item) => item.id === active.id
+    );
+
+    if (!movedItem) {
+      setActiveId(null);
+      return;
+    }
+
+    // destination index calculate
+    let newIndex = destinationContainer.items.length;
+
+    if (over.id !== overContainerId) {
+      const overIndex = destinationContainer.items.findIndex(
+        (item) => item.id === over.id
+      );
+      if (overIndex !== -1) {
+        newIndex = overIndex;
+      }
+    }
+
+    try {
+      await updateTodo(Number(movedItem.id), {
+        category_id: Number(overContainerId),
+        position: newIndex,
+      });
+    } catch (err) {
+      console.error("DB update failed (move)", err);
+    }
+  }
+
   setActiveId(null);
 };
+
+
+//   const handleDragEnd = async (event: DragEndEvent) => {
+//   const { over, active } = event;
+
+//   if (!over) {
+//     setActiveId(null);
+//     return;
+//   }
+
+//   const activeContainerId = findContainerId(active.id);
+//   const overContainerId = findContainerId(over.id);
+
+//   if (!activeContainerId || !overContainerId) {
+//     setActiveId(null);
+//     return;
+//   }
+
+//   if (activeContainerId === overContainerId && active.id !== over.id) {
+//     const containerIndex = containers.findIndex(
+//       (c) => c.id === activeContainerId
+//     );
+
+//     if (containerIndex === -1) {
+//       setActiveId(null);
+//       return;
+//     }
+
+//     const container = containers[containerIndex];
+
+//     const activeIndex = container.items.findIndex(
+//       (item) => item.id === active.id
+//     );
+
+//     const overIndex = container.items.findIndex(
+//       (item) => item.id === over.id
+//     );
+
+    
+//     if (activeIndex !== -1 && overIndex !== -1) {
+//       const newItems = arrayMove(container.items, activeIndex, overIndex);
+
+//       setContainers((containers) => {
+//         return containers.map((c, i) => {
+//           if (i === containerIndex) {
+//             return { ...c, items: newItems };
+//           }
+//           return c;
+//         });
+//       });
+
+
+      
+
+//       try {
+//         await Promise.all(
+//           newItems.map((item, index) =>
+//             updateTodo(Number(item.id), {
+//               position: index,
+//               category_id: Number(activeContainerId),
+//             })
+//           )
+//         );
+//       } catch (err) {
+//         console.error("DB update failed (reorder)", err);
+//       }
+//     }
+//   }
+
+//   setActiveId(null);
+// };
 
   // Add Todo
   const handleAddTodo = async (e: any) => {
@@ -317,90 +427,6 @@ export default function TodoHome({
     return null;
   };
 
-  // useEffect(() => {
-  //   const supabase = createClient();
-
-  //   const channel = supabase
-  //     .channel("todos-realtime")
-  //     .on(
-  //       "postgres_changes",
-  //       {
-  //         event: "*",
-  //         schema: "public",
-  //         table: "todos",
-  //       },
-  //       (payload) => {
-  //         const { eventType, new: newRecord, old } = payload;
-
-  //         if (eventType === "INSERT") {
-  //           setTodoState((prev) => [...prev, newRecord]);
-  //         }
-  //         if (eventType === "UPDATE") {
-  //           setTodoState((prev) =>
-  //             prev.map((t) => (t.id === newRecord.id ? newRecord : t)),
-  //           );
-  //         }
-
-  //         if (eventType === "DELETE") {
-  //           setTodoState((prev) => prev.filter((t) => t.id !== old.id));
-  //         }
-  //       },
-  //     )
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, []);
-
-  // useEffect(() => {
-  //   const supabase = createClient();
-
-  //   const channel = supabase
-  //     .channel("categories-realtime")
-  //     .on(
-  //       "postgres_changes",
-  //       {
-  //         event: "*",
-  //         schema: "public",
-  //         table: "categories",
-  //       },
-  //       (payload) => {
-  //         const { eventType, new: newRecord, old } = payload;
-
-  //         if (eventType === "INSERT") {
-  //           setCategoryState((prev) => [...prev, newRecord]);
-  //         }
-
-  //         if (eventType === "UPDATE") {
-  //           setCategoryState((prev) =>
-  //             prev.map((c) => (c.id === newRecord.id ? newRecord : c)),
-  //           );
-  //         }
-
-  //         if (eventType === "DELETE") {
-  //           setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
-  //         }
-  //       },
-  //     )
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, []);
-
-  useEffect(() => {
-    const initial = categories.map((cat) => ({
-      id: cat.id,
-      title: cat.category,
-      items: todos.filter((t) => t.category_id === cat.id),
-    }));
-
-    setContainers(initial);
-    setHydrated(true);
-  }, []);
-
   useEffect(() => {
     const supabase = createClient();
 
@@ -408,43 +434,26 @@ export default function TodoHome({
       .channel("todos-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "todos" },
+        {
+          event: "*",
+          schema: "public",
+          table: "todos",
+        },
         (payload) => {
           const { eventType, new: newRecord, old } = payload;
 
-          setContainers((prev) => {
-            let updated = [...prev];
+          if (eventType === "INSERT") {
+            setTodoState((prev) => [...prev, newRecord]);
+          }
+          if (eventType === "UPDATE") {
+            setTodoState((prev) =>
+              prev.map((t) => (t.id === newRecord.id ? newRecord : t)),
+            );
+          }
 
-            // DELETE
-            if (eventType === "DELETE") {
-              return updated.map((c) => ({
-                ...c,
-                items: c.items.filter((t) => t.id !== old.id),
-              }));
-            }
-
-            // INSERT / UPDATE
-            if (eventType === "INSERT" || eventType === "UPDATE") {
-              // remove from all containers first
-              updated = updated.map((c) => ({
-                ...c,
-                items: c.items.filter((t) => t.id !== newRecord.id),
-              }));
-
-              // add into correct container
-              return updated.map((c) => {
-                if (c.id === newRecord.category_id) {
-                  return {
-                    ...c,
-                    items: [...c.items, newRecord],
-                  };
-                }
-                return c;
-              });
-            }
-
-            return updated;
-          });
+          if (eventType === "DELETE") {
+            setTodoState((prev) => prev.filter((t) => t.id !== old.id));
+          }
         },
       )
       .subscribe();
@@ -461,30 +470,27 @@ export default function TodoHome({
       .channel("categories-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "categories" },
+        {
+          event: "*",
+          schema: "public",
+          table: "categories",
+        },
         (payload) => {
           const { eventType, new: newRecord, old } = payload;
 
-          setContainers((prev) => {
-            if (eventType === "INSERT") {
-              return [
-                ...prev,
-                { id: newRecord.id, title: newRecord.category, items: [] },
-              ];
-            }
+          if (eventType === "INSERT") {
+            setCategoryState((prev) => [...prev, newRecord]);
+          }
 
-            if (eventType === "DELETE") {
-              return prev.filter((c) => c.id !== old.id);
-            }
+          if (eventType === "UPDATE") {
+            setCategoryState((prev) =>
+              prev.map((c) => (c.id === newRecord.id ? newRecord : c)),
+            );
+          }
 
-            if (eventType === "UPDATE") {
-              return prev.map((c) =>
-                c.id === newRecord.id ? { ...c, title: newRecord.category } : c,
-              );
-            }
-
-            return prev;
-          });
+          if (eventType === "DELETE") {
+            setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
+          }
         },
       )
       .subscribe();
@@ -493,6 +499,109 @@ export default function TodoHome({
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    const initial = categories.map((cat) => ({
+      id: cat.id,
+      title: cat.category,
+      items: todos.filter((t) => t.category_id === cat.id),
+    }));
+
+    setContainers(initial);
+    setHydrated(true);
+  }, []);
+
+  // useEffect(() => {
+  //   const supabase = createClient();
+
+  //   const channel = supabase
+  //     .channel("todos-realtime")
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "todos" },
+  //       (payload) => {
+  //         const { eventType, new: newRecord, old } = payload;
+
+  //         setContainers((prev) => {
+  //           let updated = [...prev];
+
+  //           // DELETE
+  //           if (eventType === "DELETE") {
+  //             return updated.map((c) => ({
+  //               ...c,
+  //               items: c.items.filter((t) => t.id !== old.id),
+  //             }));
+  //           }
+
+  //           if (eventType === "INSERT" || eventType === "UPDATE") {
+  //               updated = updated.map((c) => ({
+  //                 ...c,
+  //                 items: c.items.filter((t) => t.id !== newRecord.id),
+  //               }));
+
+  //               return updated.map((c) => {
+  //                 if (c.id === newRecord.category_id) {
+  //                   const newItems = [...c.items, newRecord];
+
+  //                   return {
+  //                     ...c,
+  //                     items: newItems.sort((a, b) => a.position - b.position), // ✅ FIX
+  //                   };
+  //                 }
+  //                 return c;
+  //               });
+  //             }
+
+  //           return updated;
+  //         });
+  //       },
+  //     )
+  //     .subscribe();
+
+  //   return () => {
+  //     supabase.removeChannel(channel);
+  //   };
+  // }, []);
+
+  // useEffect(() => {
+  //   const supabase = createClient();
+
+  //   const channel = supabase
+  //     .channel("categories-realtime")
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "categories" },
+  //       (payload) => {
+  //         const { eventType, new: newRecord, old } = payload;
+
+  //         setContainers((prev) => {
+  //           if (eventType === "INSERT") {
+  //             return [
+  //               ...prev,
+  //               { id: newRecord.id, title: newRecord.category, items: [] },
+  //             ];
+  //           }
+
+  //           if (eventType === "DELETE") {
+  //             return prev.filter((c) => c.id !== old.id);
+  //           }
+
+  //           if (eventType === "UPDATE") {
+  //             return prev.map((c) =>
+  //               c.id === newRecord.id ? { ...c, title: newRecord.category } : c,
+  //             );
+  //           }
+
+  //           return prev;
+  //         });
+  //       },
+  //     )
+  //     .subscribe();
+
+  //   return () => {
+  //     supabase.removeChannel(channel);
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (!accessToken) {
