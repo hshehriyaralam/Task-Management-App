@@ -1,12 +1,12 @@
 "use client";
-import { useDroppable } from "@dnd-kit/core";
 import TodoItem from "./todoItem";
 import { deleteCategory } from "@/app/(action)/action";
 import {  SortableContext,verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-
-
+import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 
 export default function Card({
@@ -19,7 +19,30 @@ export default function Card({
   setShowTaskModal,
 }: any) {
 
-  
+//   const {
+//   setNodeRef
+// } = useSortable({
+//   id: cat.id
+// });
+
+
+  const {
+    setNodeRef: setSortableRef,
+    attributes: cardAttributes,
+    listeners: cardListeners,
+    transform,
+    transition,
+    isDragging: isCardDragging,
+  } = useSortable({ id: `cat-${cat.id}` })
+
+
+  const cardStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isCardDragging ? 0.4 : 1,
+  };
+
+    const { setNodeRef: setDropRef } = useDroppable({ id: cat.id });
 
 
   const handleDeleteCategory = async () => {
@@ -32,16 +55,15 @@ export default function Card({
   };
 
 
-  const {setNodeRef} = useDroppable({
-    id : cat.id
-  })
-
   return (
-    <div  ref={setNodeRef}>
-      <div className={`transition-all duration-200  cursor-grab`}>
-        <div className="w-[350px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div  ref={setSortableRef}  style={cardStyle}>
+      {/* <div className={`transition-all duration-200  cursor-grab`}> */}
+        <div className="w-[350px]  b rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
           {/* Card Header */}
-          <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div 
+          {...cardAttributes}
+          {...cardListeners}
+          className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white cursor-grab ">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold  text-xl  text-gray-800">
@@ -53,7 +75,9 @@ export default function Card({
           </div>
 
           {/* Card Body */}
-          <div className="h-[380px] flex flex-col">
+          <div
+          ref={setDropRef}
+          className="h-[380px] flex flex-col">
             <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
               {todo.length === 0 ? (
                 <div className="text-center py-12">
@@ -66,7 +90,6 @@ export default function Card({
                 >
                 <div>
                   {todo.map((t: any,) => (
-                    // <div key={t.id}>
                     <div key={`todo-${t.id}`}>
                       <TodoItem
                         todo={t}
@@ -103,7 +126,7 @@ export default function Card({
             </div>
           </div>
         </div>
-      </div>
+      {/* </div> */}
     </div>
   );
 }

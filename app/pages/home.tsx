@@ -3,12 +3,12 @@ import { useState, useEffect } from "react";
 import { CircleX, LayoutGrid, Plus } from "lucide-react";
 import Card from "@/components/card";
 import type { TodosCategoriesTypes, Container } from "@/type/todo";
-import dynamic from "next/dynamic";
 import {
   addCategory,
   addTodo,
   deleteTodo,
   updateTodo,
+  updateCategory,
 } from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
 import { toast } from "sonner";
@@ -19,32 +19,24 @@ import { Spinner } from "@/components/ui/spinner";
 // for Dnd kit
 import {
   DndContext,
-  closestCenter,
   useSensor,
   useSensors,
-  KeyboardSensor,
   PointerSensor,
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
   UniqueIdentifier,
-  DragCancelEvent,
   DragOverEvent,
-  useDroppable,
+  rectIntersection ,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
   arrayMove,
-  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import ItemOverlay from "@/components/itemOverlay";
+import TodoOverlay from "@/components/todoOverlay";
+import CardOverlay from "@/components/cardOverlay";
 
-// const SortableCard = dynamic(() => import("@/components/sortableCard"), {
-//   ssr: false
-// })
 
 export default function TodoHome({
   todos,
@@ -67,26 +59,47 @@ export default function TodoHome({
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // latest State
-  const [todoState, setTodoState] = useState(todos);
   const [categoryState, setCategoryState] = useState(categories);
 
-  //   const [containers, setContainers] = useState<Container[]>(() =>
-  //   categories.map((cat) => ({
-  //     id: cat.id,
-  //     title: cat.category,
-  //     items: todos.filter((t) => t.category_id === cat.id),
-  //   }))
-  // );
 
   const [containers, setContainers] = useState<Container[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const categoryIds = containers.map((c) => `cat-${c.id}`)
 
-  
+const isCategoryDrag = (id: UniqueIdentifier) =>
+  String(id).startsWith("cat-");
+
+const handleCategoryDragEnd = async (event: DragEndEvent) => {
+  const { active, over } = event;
+  if (!over || active.id === over.id) return;
+
+  const activeRaw = String(active.id).replace("cat-", "");
+  const overRaw = String(over.id).replace("cat-", "");
+
+  if (!String(over.id).startsWith("cat-")) return;
+
+  const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
+  const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
+
+  if (oldIndex === -1 || newIndex === -1) return;
+
+  const reordered = arrayMove(containers, oldIndex, newIndex);
+
+  setContainers(reordered);
+  try {
+    await Promise.all(
+      reordered.map((cat, index) =>
+        updateCategory(Number(cat.id), { position: index })
+      )
+    );
+  } catch (err) {
+    console.error("DB update failed (category reorder)", err);
+  }
+};
+
 
    const sensor = useSensors(
     useSensor(PointerSensor, {
@@ -117,9 +130,11 @@ export default function TodoHome({
     const { active, over } = event;
     if (!over) return;
 
+      if (isCategoryDrag(active.id)) return;
+    
     const activeId = active.id;
     const overId = over.id;
-
+    
     
     const activeContainerId = findContainerId(activeId);
     const overContainerId = findContainerId(overId);
@@ -192,6 +207,13 @@ const handleDragEnd = async (event: DragEndEvent) => {
     return;
   }
 
+  if (isCategoryDrag(active.id)) {
+    handleCategoryDragEnd(event);
+    setActiveId(null);
+    return;
+  }
+
+
   const activeContainerId = findContainerId(active.id);
   const overContainerId = findContainerId(over.id);
 
@@ -200,7 +222,6 @@ const handleDragEnd = async (event: DragEndEvent) => {
     return;
   }
 
-  // 🔥 GET LATEST STATE (IMPORTANT)
   const latestContainers = [...containers];
 
   const sourceContainer = latestContainers.find(
@@ -254,8 +275,6 @@ const handleDragEnd = async (event: DragEndEvent) => {
       }
     }
   }
-
-  // 👉 DIFFERENT CONTAINER (MOVE)
   else {
     const movedItem = sourceContainer.items.find(
       (item) => item.id === active.id
@@ -291,76 +310,6 @@ const handleDragEnd = async (event: DragEndEvent) => {
   setActiveId(null);
 };
 
-
-//   const handleDragEnd = async (event: DragEndEvent) => {
-//   const { over, active } = event;
-
-//   if (!over) {
-//     setActiveId(null);
-//     return;
-//   }
-
-//   const activeContainerId = findContainerId(active.id);
-//   const overContainerId = findContainerId(over.id);
-
-//   if (!activeContainerId || !overContainerId) {
-//     setActiveId(null);
-//     return;
-//   }
-
-//   if (activeContainerId === overContainerId && active.id !== over.id) {
-//     const containerIndex = containers.findIndex(
-//       (c) => c.id === activeContainerId
-//     );
-
-//     if (containerIndex === -1) {
-//       setActiveId(null);
-//       return;
-//     }
-
-//     const container = containers[containerIndex];
-
-//     const activeIndex = container.items.findIndex(
-//       (item) => item.id === active.id
-//     );
-
-//     const overIndex = container.items.findIndex(
-//       (item) => item.id === over.id
-//     );
-
-    
-//     if (activeIndex !== -1 && overIndex !== -1) {
-//       const newItems = arrayMove(container.items, activeIndex, overIndex);
-
-//       setContainers((containers) => {
-//         return containers.map((c, i) => {
-//           if (i === containerIndex) {
-//             return { ...c, items: newItems };
-//           }
-//           return c;
-//         });
-//       });
-
-
-      
-
-//       try {
-//         await Promise.all(
-//           newItems.map((item, index) =>
-//             updateTodo(Number(item.id), {
-//               position: index,
-//               category_id: Number(activeContainerId),
-//             })
-//           )
-//         );
-//       } catch (err) {
-//         console.error("DB update failed (reorder)", err);
-//       }
-//     }
-//   }
-
-//   setActiveId(null);
-// };
 
   // Add Todo
   const handleAddTodo = async (e: any) => {
@@ -427,41 +376,15 @@ const handleDragEnd = async (event: DragEndEvent) => {
     return null;
   };
 
-  useEffect(() => {
-    const supabase = createClient();
 
-    const channel = supabase
-      .channel("todos-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "todos",
-        },
-        (payload) => {
-          const { eventType, new: newRecord, old } = payload;
+  const getActiveCard = () => {
+  if (!activeId) return null;
+  const rawId = String(activeId).replace("cat-", "");
+  return containers.find((c) => String(c.id) === rawId) || null;
+};
 
-          if (eventType === "INSERT") {
-            setTodoState((prev) => [...prev, newRecord]);
-          }
-          if (eventType === "UPDATE") {
-            setTodoState((prev) =>
-              prev.map((t) => (t.id === newRecord.id ? newRecord : t)),
-            );
-          }
 
-          if (eventType === "DELETE") {
-            setTodoState((prev) => prev.filter((t) => t.id !== old.id));
-          }
-        },
-      )
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -511,97 +434,21 @@ const handleDragEnd = async (event: DragEndEvent) => {
     setHydrated(true);
   }, []);
 
-  // useEffect(() => {
-  //   const supabase = createClient();
+useEffect(() => {
+  const initial = categories
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) // ✅ sort by position
+    .map((cat) => ({
+      id: cat.id,
+      title: cat.category,
+      items: todos
+        .filter((t) => t.category_id === cat.id)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    }));
 
-  //   const channel = supabase
-  //     .channel("todos-realtime")
-  //     .on(
-  //       "postgres_changes",
-  //       { event: "*", schema: "public", table: "todos" },
-  //       (payload) => {
-  //         const { eventType, new: newRecord, old } = payload;
+  setContainers(initial);
+  setHydrated(true);
+}, []);
 
-  //         setContainers((prev) => {
-  //           let updated = [...prev];
-
-  //           // DELETE
-  //           if (eventType === "DELETE") {
-  //             return updated.map((c) => ({
-  //               ...c,
-  //               items: c.items.filter((t) => t.id !== old.id),
-  //             }));
-  //           }
-
-  //           if (eventType === "INSERT" || eventType === "UPDATE") {
-  //               updated = updated.map((c) => ({
-  //                 ...c,
-  //                 items: c.items.filter((t) => t.id !== newRecord.id),
-  //               }));
-
-  //               return updated.map((c) => {
-  //                 if (c.id === newRecord.category_id) {
-  //                   const newItems = [...c.items, newRecord];
-
-  //                   return {
-  //                     ...c,
-  //                     items: newItems.sort((a, b) => a.position - b.position), // ✅ FIX
-  //                   };
-  //                 }
-  //                 return c;
-  //               });
-  //             }
-
-  //           return updated;
-  //         });
-  //       },
-  //     )
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, []);
-
-  // useEffect(() => {
-  //   const supabase = createClient();
-
-  //   const channel = supabase
-  //     .channel("categories-realtime")
-  //     .on(
-  //       "postgres_changes",
-  //       { event: "*", schema: "public", table: "categories" },
-  //       (payload) => {
-  //         const { eventType, new: newRecord, old } = payload;
-
-  //         setContainers((prev) => {
-  //           if (eventType === "INSERT") {
-  //             return [
-  //               ...prev,
-  //               { id: newRecord.id, title: newRecord.category, items: [] },
-  //             ];
-  //           }
-
-  //           if (eventType === "DELETE") {
-  //             return prev.filter((c) => c.id !== old.id);
-  //           }
-
-  //           if (eventType === "UPDATE") {
-  //             return prev.map((c) =>
-  //               c.id === newRecord.id ? { ...c, title: newRecord.category } : c,
-  //             );
-  //           }
-
-  //           return prev;
-  //         });
-  //       },
-  //     )
-  //     .subscribe();
-
-  //   return () => {
-  //     supabase.removeChannel(channel);
-  //   };
-  // }, []);
 
   useEffect(() => {
     if (!accessToken) {
@@ -669,21 +516,20 @@ const handleDragEnd = async (event: DragEndEvent) => {
         {/* cards */}
         <DndContext
           sensors={sensor}
-          collisionDetection={closestCenter}
+          collisionDetection={rectIntersection}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div>
+          {/* <div> */}
+            <SortableContext
+            items={categoryIds} strategy={horizontalListSortingStrategy}
+              >
             <div className="flex gap-5 overflow-x-auto custom-scrollbar">
               {containers?.map((cat, index) => (
-                // <div key={cat.id}>
-                <div key={`container-${cat.id}`}>
                   <Card
+                   key={`container-${cat.id}`}
                     cat={cat}
-                    // todo={cat.items
-                    //   .filter((t) => t.category_id === cat.id)
-                    //   .sort((a, b) => a.position - b.position)}
                     todo={cat.items}
                     index={index}
                     categories={categoryState}
@@ -691,25 +537,19 @@ const handleDragEnd = async (event: DragEndEvent) => {
                     handleEdit={handleEdit}
                     setShowTaskModal={setShowTaskModal}
                   />
-                </div>
               ))}
             </div>
-          </div>
-
-          {/* <DragOverlay>
-        {
-          activeId ? (
-            <ItemOverlay>
-                {getActiveItem()?.task}
-            </ItemOverlay>
-          ) : null
-        }
-      </DragOverlay> */}
+            </SortableContext>
 
           <DragOverlay>
-            {activeId && containers.length > 0 ? (
-              <ItemOverlay>{getActiveItem()?.task}</ItemOverlay>
-            ) : null}
+            {activeId && isCategoryDrag(activeId)
+              ? 
+               <CardOverlay
+                cat={getActiveCard()}
+                todo={getActiveCard()?.items || []}/>
+              : activeId
+              ? <TodoOverlay>{getActiveItem()?.task}</TodoOverlay>
+              : null}
           </DragOverlay>
         </DndContext>
       </div>

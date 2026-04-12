@@ -1,7 +1,7 @@
 "use client";
 import { Pencil, Trash2 } from "lucide-react";
 
-export default function ItemOverlay({
+export default function TodoOverlay({
   children,
 }: {
   children: React.ReactNode;
@@ -9,15 +9,11 @@ export default function ItemOverlay({
   return (
     <div>
       <div
-        className={`bg-white rounded-lg border border-gray-100 p-2
+        className={`bg-white rounded-lg border border-gray-200 p-2 py-3
             flex items-center justify-between group transition-all duration-200 cursor-grab
           `}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <input
-            type="checkbox"
-            className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-200 cursor-pointer"
-          />
           <span
             className={`text-sm text-gray-700 truncate transition-all duration-200 
         text-lg font-semibold

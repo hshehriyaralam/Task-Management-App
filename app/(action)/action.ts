@@ -115,4 +115,18 @@ export async function deleteCategory(id:number){
 }
 
 
+// update category 
+
+export async function updateCategory(id: number, data: { position?: number }) {
+  const supabase = await createClient();
+  
+  const { error } = await supabase
+    .from("categories")
+    .update(data)
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+
+}
+
 

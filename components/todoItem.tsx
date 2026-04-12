@@ -2,22 +2,21 @@
 import completeTodo from "@/app/(action)/action";
 import { useSortable } from "@dnd-kit/sortable";
 import {CSS} from '@dnd-kit/utilities'
-
-
 import { Trash2, Pencil } from "lucide-react";
+import { useState } from "react";
 
 export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
-
     const {
     setNodeRef,
     attributes,
     listeners,
     transform,
     transition,
-    // isDragging
+    isDragging
   } = useSortable({id : todo.id})
 
-   const style = {transform   : CSS.Transform.toString(transform), transition}
+
+   const style = {transform   : CSS.Transform.toString(transform), transition, }
   const handleCompleteTodo = async (id: number) => {
     try {
       if (!id) return;
@@ -29,17 +28,15 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
     }
   };
 
+
   return (
-    <div
-    ref={setNodeRef}
-         style={style}
-      {...attributes}
-      {...listeners}
-    >
+    <div  ref={setNodeRef} style={style} {...attributes} {...listeners} >
       <div
-        className={`bg-white rounded-lg border border-gray-100 p-2 my-2
-            flex items-center justify-between group transition-all duration-200 cursor-grab
-          `}
+        className={`
+          bg-white rounded-lg  border 
+           ${isDragging ? 'border-2 border-dotted  border-gray-300  00 ' : '' }   p-2 my-2
+            flex items-center justify-between group transition-all duration-200 cursor-grab`}
+
       >
         <div className="flex items-center gap-2 flex-1 min-w-0 ">
           <input
