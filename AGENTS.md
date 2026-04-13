@@ -1,123 +1,873 @@
-with update 
+"use client";
+import { useState, useEffect, useRef } from "react";
+import { CircleX, LayoutGrid, Plus } from "lucide-react";
+import Card from "@/components/card";
+import type { TodosCategoriesTypes, Container } from "@/type/todo";
+import {
+  addCategory,
+  addTodo,
+  deleteTodo,
+  updateTodo,
+  updateCategory,
+} from "@/app/(action)/action";
+import { createClient } from "@/app/lib/supabase/client";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
+// for Dnd kit
+import {
+  DndContext,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  UniqueIdentifier,
+  DragOverEvent,
+  rectIntersection,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import TodoOverlay from "@/components/todoOverlay";
+import CardOverlay from "@/components/cardOverlay";
 
-const handleDragEnd = async (event: DragEndEvent) => {
-  const { over, active } = event;
+export default function TodoHome({
+  todos,
+  categories,
+  accessToken,
+}: TodosCategoriesTypes) {
+  const [categoryState, setCategoryState] = useState(categories);
+  const [todoState, setTodoState] = useState(todos);
+  const [todo, setTodo] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const router = useRouter();
 
-  if (!over) {
-    setActiveId(null);
-    return;
+  // for edit todo States
+  const [isOpen, setIsOpen] = useState(false);
+  const [editTodoId, setEditTodoId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+
+  // for add more categories
+  const [newCategory, setNewCategory] = useState("");
+
+  // show add Category modal
+  const [showModal, setShowModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [containers, setContainers] = useState<Container[]>([]);
+  const isDraggingRef = useRef(false);
+
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const categoryIds = containers.map((c) => `cat-${c.id}`);
+
+  const buildContainers = (categories: any[], todos: any[]) => {
+    return categories
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map((cat) => ({
+        id: cat.id,
+        title: cat.category,
+        items: todos
+          .filter((t) => t.category_id === cat.id)
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+      }));
+  };
+
+  const latestTodosRef = useRef(todos);
+const latestCategoriesRef = useRef(categories);
+
+  const isCategoryDrag = (id: UniqueIdentifier) =>
+    String(id).startsWith("cat-");
+
+  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeRaw = String(active.id).replace("cat-", "");
+    const overRaw = String(over.id).replace("cat-", "");
+
+    if (!String(over.id).startsWith("cat-")) return;
+
+    const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
+    const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(containers, oldIndex, newIndex);
+
+    setContainers(reordered);
+    try {
+      await Promise.all(
+        reordered.map((cat, index) =>
+          updateCategory(Number(cat.id), { position: index }),
+        ),
+      );
+    } catch (err) {
+      console.error("DB update failed (category reorder)", err);
+    }
+  };
+
+  const sensor = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
+  // find active container helper function
+  function findContainerId(
+    itemId: UniqueIdentifier,
+  ): UniqueIdentifier | undefined {
+    const container = containers.find((container) => {
+      if (container.id === itemId) return true;
+
+      return container.items.some((item) => item.id === itemId);
+    });
+
+    return container?.id;
   }
 
-  const activeContainerId = findContainerId(active.id);
-  const overContainerId = findContainerId(over.id);
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id);
+     isDraggingRef.current = true; 
+  };
 
-  if (!activeContainerId || !overContainerId) {
-    setActiveId(null);
-    return;
-  }
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
 
-  if (activeContainerId === overContainerId && active.id !== over.id) {
-    const containerIndex = containers.findIndex(
-      (c) => c.id === activeContainerId
-    );
+    if (isCategoryDrag(active.id)) return;
 
-    if (containerIndex === -1) {
+    const activeId = active.id;
+    const overId = over.id;
+
+    const activeContainerId = findContainerId(activeId);
+    const overContainerId = findContainerId(overId);
+
+    if (!activeContainerId || !overContainerId) return;
+
+    if (activeContainerId === overContainerId && activeId !== overId) {
+      return;
+    }
+
+    if (activeContainerId === overContainerId) return;
+
+    setContainers((prev) => {
+      const activeContainer = prev.find((c) => c.id === activeContainerId);
+      if (!activeContainer) return prev;
+
+      const activeItem = activeContainer.items.find(
+        (item) => item.id === activeId,
+      );
+      if (!activeItem) return prev;
+
+      const newContainers = prev.map((container) => {
+        if (container.id === activeContainerId) {
+          return {
+            ...container,
+            items: container.items.filter((item) => item.id !== activeId),
+          };
+        }
+
+        if (container.id === overContainerId) {
+          if (overId === overContainerId) {
+            return {
+              ...container,
+              items: [...container.items, activeItem],
+            };
+          }
+
+          const overItemIndex = container.items.findIndex(
+            (item) => item.id === overId,
+          );
+          if (overItemIndex !== -1) {
+            const activeItemCopy = { ...activeItem };
+            return {
+              ...container,
+              items: [
+                ...container.items.slice(0, overItemIndex + 1),
+                activeItem,
+                ...container.items.slice(overItemIndex + 1),
+              ],
+            };
+          }
+        }
+
+        return container;
+      });
+
+      return newContainers;
+    });
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) {
       setActiveId(null);
       return;
     }
 
-    const container = containers[containerIndex];
+    if (isCategoryDrag(active.id)) {
+      handleCategoryDragEnd(event);
+      setActiveId(null);
+      return;
+    }
 
-    const activeIndex = container.items.findIndex(
-      (item) => item.id === active.id
+    const activeContainerId = findContainerId(active.id);
+    const overContainerId = findContainerId(over.id);
+
+    if (!activeContainerId || !overContainerId) {
+      setActiveId(null);
+      return;
+    }
+
+    const latestContainers = [...containers];
+
+    const sourceContainer = latestContainers.find(
+      (c) => c.id === activeContainerId,
     );
-    const overIndex = container.items.findIndex(
-      (item) => item.id === over.id
+    const destinationContainer = latestContainers.find(
+      (c) => c.id === overContainerId,
     );
 
-    if (activeIndex !== -1 && overIndex !== -1) {
-      const newItems = arrayMove(container.items, activeIndex, overIndex);
+    if (!sourceContainer || !destinationContainer) {
+      setActiveId(null);
+      return;
+    }
 
-     
-      setContainers((containers) => {
-        return containers.map((c, i) => {
-          if (i === containerIndex) {
-            return { ...c, items: newItems };
-          }
-          return c;
-        });
-      });
+    // REORDER
+    if (activeContainerId === overContainerId) {
+      const activeIndex = sourceContainer.items.findIndex(
+        (item) => item.id === active.id,
+      );
 
- 
+      const overIndex = sourceContainer.items.findIndex(
+        (item) => item.id === over.id,
+      );
+
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const newItems = arrayMove(
+          sourceContainer.items,
+          activeIndex,
+          overIndex,
+        );
+
+        setContainers((prev) =>
+          prev.map((c) =>
+            c.id === activeContainerId ? { ...c, items: newItems } : c,
+          ),
+        );
+
+        // DB update
+        try {
+          await Promise.all(
+            newItems.map((item, index) =>
+              updateTodo(Number(item.id), {
+                position: index,
+                category_id: Number(activeContainerId),
+              }),
+            ),
+          );
+        } catch (err) {
+          console.error("DB update failed (reorder)", err);
+        }
+      }
+    } else {
+      const movedItem = sourceContainer.items.find(
+        (item) => item.id === active.id,
+      );
+
+      if (!movedItem) {
+        setActiveId(null);
+        return;
+      }
+
+      let newIndex = destinationContainer.items.length;
+
+      if (over.id !== overContainerId) {
+        const overIndex = destinationContainer.items.findIndex(
+          (item) => item.id === over.id,
+        );
+        if (overIndex !== -1) {
+          newIndex = overIndex;
+        }
+      }
+
       try {
-        const supabase = createClient();
-
-        const updates = newItems.map((item, index) => ({
-          id: item.id,
-          position: index, 
-        }));
-
-        await supabase.from("todos").upsert(updates);
-      } catch (error) {
-        console.error("Failed to update positions", error);
+        await updateTodo(Number(movedItem.id), {
+          category_id: Number(overContainerId),
+          position: newIndex,
+        });
+      } catch (err) {
+        console.error("DB update failed (move)", err);
       }
     }
-  }
 
-  setActiveId(null);
-};
+    setActiveId(null);
+    setTimeout(() => {
+  isDraggingRef.current = false;
+}, 300);
+  };
+
+  // Add Todo
+  const handleAddTodo = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    await addTodo(formData);
+    setTodo("");
+    setCategory("");
+    setShowTaskModal(false);
+    setLoading(false);
+    toast.success("Todo Successfully Added", { position: "top-center" });
+  };
+  // Add  category
+  const handleAddCategory = async (e: any) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    await addCategory(formData);
+    setLoading(false);
+    setShowModal(false);
+    setNewCategory("");
+    toast.success("New Card Successfully Added", { position: "top-center" });
+  };
+  // Delete Todo
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteTodo(id);
+      toast.success("Todo Successfully Deleted", { position: "top-center" });
+    } catch (error) {
+      toast.error("Failed to delete todo", { position: "top-center" });
+    }
+  };
+  // show Edit Modal
+  const handleEdit = (todo: any) => {
+    setIsOpen(true);
+    setEditTodoId(todo.id);
+    setEditText(todo.task);
+    setTodo("");
+  };
+  // Update Todo
+  const handleUpdate = async (e: any) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (!editTodoId) return;
+      await updateTodo(editTodoId, {
+        task: editText,
+      });
+      setIsOpen(false);
+      toast.success("Todo Successfully Updated", { position: "top-center" });
+    } catch (error) {
+      alert("Failed to Update Todo");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getActiveItem = () => {
+    for (const container of containers) {
+      const item = container.items.find((item) => item.id === activeId);
+      if (item) return item;
+    }
+    return null;
+  };
+
+  const getActiveCard = () => {
+    if (!activeId) return null;
+    const rawId = String(activeId).replace("cat-", "");
+    return containers.find((c) => String(c.id) === rawId) || null;
+  };
 
 
 
 
+// useEffect(() => {
+//   const supabase = createClient();
+
+//   const todoChannel = supabase
+//     .channel("todos-realtime")
+//     .on(
+//       "postgres_changes",
+//       { event: "*", schema: "public", table: "todos" },
+//       (payload) => {
+//         const { eventType, new: newRecord, old } = payload;
+
+//         // if (isDraggingRef.current) return; 
+
+//         setContainers((prev) => {
+//           if (eventType === "INSERT") {
+//             return prev.map((c) =>
+//               c.id === newRecord.category_id
+//                 ? { ...c, items: [...c.items, newRecord] }
+//                 : c
+//             );
+//           }
+
+//           if (eventType === "UPDATE") {
+//             return prev.map((c) => ({
+//               ...c,
+//               items: c.items.map((t) =>
+//                 t.id === newRecord.id
+//                   ? { ...t, task: newRecord.task, is_complete: newRecord.is_complete }
+//                   : t
+//               ),
+//             }));
+//           }
+
+//           if (eventType === "DELETE") {
+//             return prev.map((c) => ({
+//               ...c,
+//               items: c.items.filter((t) => t.id !== old.id),
+//             }));
+//           }
+
+//           return prev;
+//         });
+//       }
+//     )
+//     .subscribe();
+
+//   return () => {
+//     supabase.removeChannel(todoChannel);
+//   };
+// }, []);
 
 
-old DragEnd
- const handleDragEnd  = (event : DragEndEvent) => {
 
-          const {over, active} = event
+// useEffect(() => {
+//   const supabase = createClient();
 
-          if(!over){
-              setActiveId(null)
-              return} 
+//   const channel = supabase
+//     .channel("categories-realtime")
+//     .on(
+//       "postgres_changes",
+//       { event: "*", schema: "public", table: "categories" },
+//       (payload) => {
+//         const { eventType, new: newRecord, old } = payload;
+
+        
+//         if (eventType === "INSERT") setCategoryState((prev) => [...prev, newRecord]);
+//         if (eventType === "UPDATE") setCategoryState((prev) => prev.map((c) => c.id === newRecord.id ? newRecord : c));
+//         if (eventType === "DELETE") setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
+
+//         // if (isDraggingRef.current) return;
+
+//         setContainers((prev) => {
+//           if (eventType === "INSERT") {
+//             return [...prev, { id: newRecord.id, title: newRecord.category, items: [] }];
+//           }
+//           if (eventType === "DELETE") {
+//             return prev.filter((c) => c.id !== old.id);
+//           }
+//           if (eventType === "UPDATE") {
+//             return prev.map((c) =>
+//               c.id === newRecord.id ? { ...c, title: newRecord.category } : c
+//             );
+//           }
+//           return prev;
+//         });
+//       }
+//     )
+//     .subscribe();
+
+//   return () => {
+//     supabase.removeChannel(channel);
+//   };
+// }, []);  
 
 
-              const activeContainerId = findContainerId(active.id)
-              const  overContainerId = findContainerId(over.id)
 
-              if(!activeContainerId || !overContainerId){
-                setActiveId(null)
-                return
-              }
+//   useEffect(() => {
+//   const initial = buildContainers(categories, todos);
+//   setContainers(initial);
+// }, []);
 
-              if(activeContainerId === overContainerId && active.id !== over.id){
-                const containerIndex = containers.findIndex((c) => c.id === activeContainerId)
 
-                if(containerIndex === -1){
-                  setActiveId(null)
-                  return
-                }
-                
-                const container = containers[containerIndex];
-                const activeIndex = container.items.findIndex((item) => item.id === active.id)
-                const overIndex = container.items.findIndex((item) =>  item.id === over.id)
 
-                if(activeIndex !== -1 && overIndex !== -1 ){
-                  const newItems = arrayMove(container.items, activeIndex, overIndex)
+useEffect(() => {
+  const supabase = createClient();
 
-                  setContainers((containers) => {
-                    return containers.map((c,i) =>  {
-                      if( i === containerIndex){
-                        return {...c, items:newItems}
-                      }
-                      return c
-                    })
-                  })
-                }
-              }
+  const channel = supabase
+    .channel("todos-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "todos" },
+      (payload) => {
+        const { eventType, new: newRecord, old } = payload;
 
-              setActiveId(null)
+        if (isDraggingRef.current) return;
+
+        let updatedTodos = [...latestTodosRef.current];
+
+        if (eventType === "INSERT") {
+          updatedTodos.push(newRecord);
+        }
+
+        if (eventType === "UPDATE") {
+          updatedTodos = updatedTodos.map((t) =>
+            t.id === newRecord.id ? newRecord : t
+          );
+        }
+
+        if (eventType === "DELETE") {
+          updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
+        }
+
+        // 🔥 update ref
+        latestTodosRef.current = updatedTodos;
+
+        // 🔥 rebuild UI
+        const newContainers = buildContainers(
+          latestCategoriesRef.current,
+          updatedTodos
+        );
+        setContainers(newContainers);
       }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
 
+useEffect(() => {
+  const supabase = createClient();
+
+  const channel = supabase
+    .channel("categories-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "categories" },
+      (payload) => {
+        const { eventType, new: newRecord, old } = payload;
+
+        if (isDraggingRef.current) return;
+
+        let updatedCategories = [...latestCategoriesRef.current];
+
+        if (eventType === "INSERT") {
+          updatedCategories.push(newRecord);
+        }
+
+        if (eventType === "UPDATE") {
+          updatedCategories = updatedCategories.map((c) =>
+            c.id === newRecord.id ? newRecord : c
+          );
+        }
+
+        if (eventType === "DELETE") {
+          updatedCategories = updatedCategories.filter(
+            (c) => c.id !== old.id
+          );
+        }
+
+        // 🔥 update ref
+        latestCategoriesRef.current = updatedCategories;
+
+        // 🔥 rebuild UI
+        const newContainers = buildContainers(
+          updatedCategories,
+          latestTodosRef.current
+        );
+        setContainers(newContainers);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+useEffect(() => {
+  latestTodosRef.current = todos;
+  latestCategoriesRef.current = categories;
+
+  const initial = buildContainers(categories, todos);
+  setContainers(initial);
+}, [todos, categories]);
+
+
+  useEffect(() => {
+    if (!accessToken) {
+      router.push("/login");
+    }
+  }, []);
+
+  return (
+    <div>
+      <div>
+        <form onSubmit={handleAddTodo} className="mb-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex  flex-col md:flex-row gap-4">
+            <input
+              required
+              name="todo"
+              type="text"
+              placeholder="Enter your task..."
+              value={todo}
+              onChange={(e) => setTodo(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2  focus:ring-blue-100 transition-all text-gray-700 placeholder-gray-400 "
+            />
+
+            <select
+              title="Select Category"
+              name="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+            >
+              {categoryState.map((cat, index) => (
+                <option className="text-gray-700" key={index} value={cat.id}>
+                  THIS {cat.category.toUpperCase()}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="lg:w-30  lg:py-1 py-2 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer "
+            >
+              {loading ? (
+                <Spinner className="size-6" />
+              ) : (
+                <>
+                  <Plus className="w-4 h-4  text-gray-200" /> Add Task
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowModal(true);
+                setTodo("");
+              }}
+              className="px-3 lg:py-1 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer  hover:bg-primary/10 "
+            >
+              <LayoutGrid className="w-4 h-4" />
+              New Board
+            </button>
+          </div>
+        </form>
+
+        {/* cards */}
+        <DndContext
+          sensors={sensor}
+          collisionDetection={rectIntersection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={categoryIds}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="flex gap-5 overflow-x-auto custom-scrollbar">
+              {containers?.map((cat, index) => (
+                <Card
+                  key={`container-${cat.id}`}
+                  cat={cat}
+                  todo={cat.items}
+                  index={index}
+                  categories={categoryState}
+                  handleDelete={handleDelete}
+                  handleEdit={handleEdit}
+                  setShowTaskModal={setShowTaskModal}
+                />
+              ))}
+            </div>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeId && isCategoryDrag(activeId) ? (
+              <CardOverlay
+                cat={getActiveCard()}
+                todo={getActiveCard()?.items || []}
+              />
+            ) : activeId ? (
+              <TodoOverlay>{getActiveItem()?.task}</TodoOverlay>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {/* Modals */}
+      {/* show Add Category Modal  */}
+      {showModal && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">
+                Create New Board
+              </h2>
+              <CircleX
+                onClick={() => setShowModal(false)}
+                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+              />
+            </div>
+            <form onSubmit={handleAddCategory}>
+              <input
+                required
+                name="category"
+                type="text"
+                placeholder="Enter board name..."
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
+              />
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 transition-all duration-200 text-md  cursor-pointer "
+                >
+                  {loading ? <Spinner className="size-6" /> : "Create Board"}
+                </Button>
+                <Button
+                  disabled={loading}
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer "
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Show Edit Todo PopUp */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Edit Task</h2>
+              <CircleX
+                onClick={() => setIsOpen(false)}
+                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+              />
+            </div>
+            <form onSubmit={handleUpdate}>
+              <input
+                type="text"
+                placeholder="Update your task..."
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
+              />
+              <div className="flex gap-3">
+                <button
+                  disabled={loading}
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md  flex items-center justify-center    transition-all duration-200  cursor-pointer"
+                >
+                  {loading ? <Spinner className="size-6" /> : "Update Task"}
+                </button>
+                <Button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer "
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTaskModal && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Add Task</h2>
+              <CircleX
+                onClick={() => setShowTaskModal(false)}
+                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+              />
+            </div>
+            <form onSubmit={handleAddTodo}>
+              <div className="flex   justify-center gap-2">
+                <input
+                  required
+                  name="todo"
+                  type="text"
+                  placeholder="Enter your task..."
+                  value={todo}
+                  onChange={(e) => setTodo(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
+                />
+
+                <select
+                  title="Select Category"
+                  name="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-12 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                >
+                  {categoryState.map((cat, index) => (
+                    <option
+                      className="text-gray-700  text-[13px]"
+                      key={index}
+                      value={cat.id}
+                    >
+                      THIS {cat.category.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md transition-all text-center  duration-200  cursor-pointer"
+                >
+                  {loading ? <Spinner className="size-6" /> : "Add Task"}
+                </Button>
+                <Button
+                  disabled={loading}
+                  type="button"
+                  onClick={() => setShowTaskModal(false)}
+                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer "
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
