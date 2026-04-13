@@ -38,7 +38,7 @@ export default function Card({
   };
 
     const { setNodeRef: setDropRef } = useDroppable({ id: cat.id });
-
+  
 
   const handleDeleteCategory = async () => {
     if (categories.length === 1) {

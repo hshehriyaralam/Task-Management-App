@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { CircleX, LayoutGrid, Plus } from "lucide-react";
 import Card from "@/components/card";
 import type { TodosCategoriesTypes, Container } from "@/type/todo";
@@ -42,7 +42,7 @@ export default function TodoHome({
   categories,
   accessToken,
 }: TodosCategoriesTypes) {
-  const [categoryState, setCategoryState] = useState(categories);
+  // const [categoryState, setCategoryState] = useState(categories);
   // const [todoState, setTodoState] = useState(todos);
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
@@ -68,25 +68,41 @@ export default function TodoHome({
   const isDraggingRef = useRef(false);
 
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const categoryIds = containers.map((c) => `cat-${c.id}`);
+  const categoryIds = useMemo(
+  () => containers.map((c) => `cat-${c.id}`),
+  [containers]
+);
 
-  const buildContainers = (categories: any[], todos: any[]) => {
-    return categories
-      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-      .map((cat) => ({
-        id: cat.id,
-        title: cat.category,
-        items: todos
-          .filter((t) => t.category_id === cat.id)
-          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-      }));
-  };
+  const buildContainers = useCallback((categories : any[], todos: any[] ) => {
+  return categories
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((cat) => ({
+      id: cat.id,
+      title: cat.category,
+      items: todos
+        .filter((t) => t.category_id === cat.id)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    }));
+}, []);
 
   const latestTodosRef = useRef(todos);
   const latestCategoriesRef = useRef(categories);
 
-  const isCategoryDrag = (id: UniqueIdentifier) =>
-    String(id).startsWith("cat-");
+   // find active container helper function
+  function findContainerId(
+    itemId: UniqueIdentifier,
+  ): UniqueIdentifier | undefined {
+    const container = containers.find((container) => {
+      if (container.id === itemId) return true;
+
+      return container.items.some((item) => item.id === itemId);
+    });
+
+    return container?.id;}
+
+  const isCategoryDrag = useCallback((id : UniqueIdentifier) => {
+  return String(id).startsWith("cat-");
+}, [])
 
 
   const TaskModalOpen = useCallback((categoryId : number) => {
@@ -114,7 +130,7 @@ export default function TodoHome({
     
   },[])
 
-  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+  const handleCategoryDragEnd = useCallback((async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -140,9 +156,11 @@ export default function TodoHome({
     } catch (err) {
       console.error("DB update failed (category reorder)", err);
     }
-  };
+  }),[containers])
 
-  const sensor = useSensors(
+
+
+   const sensor = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
@@ -150,25 +168,12 @@ export default function TodoHome({
     }),
   );
 
-  // find active container helper function
-  function findContainerId(
-    itemId: UniqueIdentifier,
-  ): UniqueIdentifier | undefined {
-    const container = containers.find((container) => {
-      if (container.id === itemId) return true;
-
-      return container.items.some((item) => item.id === itemId);
-    });
-
-    return container?.id;
-  }
-
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id);
      isDraggingRef.current = true; 
-  };
+  },[])
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -234,9 +239,9 @@ export default function TodoHome({
 
       return newContainers;
     });
-  };
+  },[containers])
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over) {
@@ -341,13 +346,13 @@ export default function TodoHome({
     }
 
     setActiveId(null);
-    setTimeout(() => {
-  isDraggingRef.current = false;
-}, 300);
-  };
+//     setTimeout(() => {
+//   isDraggingRef.current = false;
+// }, 300);
+  },[containers])
 
   // Add Todo
-  const handleAddTodo = async (e: any) => {
+  const handleAddTodo = useCallback(async (e: any) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
@@ -357,9 +362,11 @@ export default function TodoHome({
     setShowTaskModal(false);
     setLoading(false);
     toast.success("Todo Successfully Added", { position: "top-center" });
-  };
+  },[])
+
+
   // Add  category
-  const handleAddCategory = async (e: any) => {
+  const handleAddCategory = useCallback(async (e: any) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
@@ -368,25 +375,32 @@ export default function TodoHome({
     setShowModal(false);
     setNewCategory("");
     toast.success("New Card Successfully Added", { position: "top-center" });
-  };
+  },[])
+
+
   // Delete Todo
-  const handleDelete = async (id: number) => {
+  const handleDelete = useCallback(async (id: number) => {
     try {
       await deleteTodo(id);
       toast.success("Todo Successfully Deleted", { position: "top-center" });
     } catch (error) {
       toast.error("Failed to delete todo", { position: "top-center" });
     }
-  };
+  },[])
+
+
   // show Edit Modal
-  const handleEdit = (todo: any) => {
+  const handleEdit = useCallback((todo: any) => {
     setIsOpen(true);
     setEditTodoId(todo.id);
     setEditText(todo.task);
     setTodo("");
-  };
+  },[])
+
+
+
   // Update Todo
-  const handleUpdate = async (e: any) => {
+  const handleUpdate = useCallback(async (e: any) => {
     e.preventDefault();
     try {
       setLoading(true);
@@ -401,7 +415,8 @@ export default function TodoHome({
     } finally {
       setLoading(false);
     }
-  };
+  },[editTodoId, editText])
+
 
   const getActiveItem = () => {
     for (const container of containers) {
@@ -418,71 +433,179 @@ export default function TodoHome({
   };
 
 
+
+
+// useEffect(() => {s
+//   const supabase = createClient();
+
+//   const channel = supabase
+//     .channel("todos-realtime")
+//     .on(
+//       "postgres_changes",
+//       { event: "*", schema: "public", table: "todos" },
+//       (payload) => {
+//         const { eventType, new: newRecord, old } = payload;
+
+//         if (isDraggingRef.current) return;
+
+//         let updatedTodos = [...latestTodosRef.current];
+
+//         if (eventType === "INSERT") {
+//           updatedTodos.push(newRecord);
+//         }
+
+//         if (eventType === "UPDATE") {
+//           updatedTodos = updatedTodos.map((t) =>
+//             t.id === newRecord.id ? newRecord : t
+//           );
+//         }
+
+//         if (eventType === "DELETE") {
+//           updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
+//         }
+
+//         // 🔥 update ref
+//         latestTodosRef.current = updatedTodos;
+
+//         // 🔥 rebuild UI
+//         const newContainers = buildContainers(
+//           latestCategoriesRef.current,
+//           updatedTodos
+//         );
+//         setContainers(newContainers);
+//       }
+//     )
+//     .subscribe();
+
+//   return () => {
+//     supabase.removeChannel(channel);
+//   };
+// }, []);
+
+
+// useEffect(() => {
+//   const supabase = createClient();
+
+//   const channel = supabase
+//     .channel("categories-realtime")
+//     .on(
+//       "postgres_changes",
+//       { event: "*", schema: "public", table: "categories" },
+//       (payload) => {
+//         const { eventType, new: newRecord, old } = payload;
+
+//         if (isDraggingRef.current) return;
+
+//         let updatedCategories = [...latestCategoriesRef.current];
+
+//         if (eventType === "INSERT") {
+//           updatedCategories = [...updatedCategories, newRecord];
+//         }
+
+//         if (eventType === "UPDATE") {
+//           updatedCategories = updatedCategories.map((c) =>
+//             c.id === newRecord.id ? newRecord : c
+//           );
+//         }
+
+//         if (eventType === "DELETE") {
+//           updatedCategories = updatedCategories.filter(
+//             (c) => c.id !== old.id
+//           );
+//         }
+
+//         latestCategoriesRef.current = updatedCategories;
+//         setCategoryState(updatedCategories);
+
+//         const newContainers = buildContainers(
+//           updatedCategories,
+//           latestTodosRef.current
+//         );
+
+//         setContainers(newContainers);
+//       }
+//     )
+//     .subscribe();
+
+//   return () => {
+//     supabase.removeChannel(channel);
+//   };
+// }, []);
+
+
+
+// useEffect(() => {
+//   latestTodosRef.current = todos;
+//   latestCategoriesRef.current = categories;
+
+//   const initial = buildContainers(categories, todos);
+//   setContainers(initial);
+// }, [todos, categories]);
+
+
+//   useEffect(() => {
+//     if (!accessToken) {
+//       router.push("/login");
+//     }
+//   }, []);
+
+
+// new One useEffect 
 useEffect(() => {
   const supabase = createClient();
 
-  const channel = supabase
+  // 🔥 INIT (props → refs → UI)
+  latestTodosRef.current = todos;
+  latestCategoriesRef.current = categories;
+
+  setContainers(buildContainers(categories, todos));
+
+  // 🔥 TODOS REALTIME
+  const todoChannel = supabase
     .channel("todos-realtime")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "todos" },
       (payload) => {
-        const { eventType, new: newRecord, old } = payload;
-
         if (isDraggingRef.current) return;
-
+        const { eventType, new: newRecord, old } = payload;
         let updatedTodos = [...latestTodosRef.current];
-
         if (eventType === "INSERT") {
           updatedTodos.push(newRecord);
         }
-
         if (eventType === "UPDATE") {
           updatedTodos = updatedTodos.map((t) =>
             t.id === newRecord.id ? newRecord : t
           );
         }
-
         if (eventType === "DELETE") {
           updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
         }
-
-        // 🔥 update ref
         latestTodosRef.current = updatedTodos;
-
-        // 🔥 rebuild UI
-        const newContainers = buildContainers(
-          latestCategoriesRef.current,
-          updatedTodos
+        setContainers(
+          buildContainers(
+            latestCategoriesRef.current,
+            updatedTodos
+          )
         );
-        setContainers(newContainers);
       }
-    )
-    .subscribe();
+    );
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
-
-
-useEffect(() => {
-  const supabase = createClient();
-
-  const channel = supabase
+  // 🔥 CATEGORIES REALTIME
+  const categoryChannel = supabase
     .channel("categories-realtime")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "categories" },
       (payload) => {
-        const { eventType, new: newRecord, old } = payload;
-
         if (isDraggingRef.current) return;
+
+        const { eventType, new: newRecord, old } = payload;
 
         let updatedCategories = [...latestCategoriesRef.current];
 
         if (eventType === "INSERT") {
-          updatedCategories = [...updatedCategories, newRecord];
+          updatedCategories.push(newRecord);
         }
 
         if (eventType === "UPDATE") {
@@ -498,39 +621,31 @@ useEffect(() => {
         }
 
         latestCategoriesRef.current = updatedCategories;
-        setCategoryState(updatedCategories);
 
-        const newContainers = buildContainers(
-          updatedCategories,
-          latestTodosRef.current
+        setContainers(
+          buildContainers(
+            updatedCategories,
+            latestTodosRef.current
+          )
         );
-
-        setContainers(newContainers);
       }
-    )
-    .subscribe();
+    );
+
+  // 🔥 subscribe
+  todoChannel.subscribe();
+  categoryChannel.subscribe();
+
+  // 🔥 AUTH CHECK
+  if (!accessToken) {
+    router.push("/login");
+  }
 
   return () => {
-    supabase.removeChannel(channel);
+    supabase.removeChannel(todoChannel);
+    supabase.removeChannel(categoryChannel);
   };
-}, []);
+}, [todos, categories, accessToken]);
 
-
-
-useEffect(() => {
-  latestTodosRef.current = todos;
-  latestCategoriesRef.current = categories;
-
-  const initial = buildContainers(categories, todos);
-  setContainers(initial);
-}, [todos, categories]);
-
-
-  useEffect(() => {
-    if (!accessToken) {
-      router.push("/login");
-    }
-  }, []);
 
   return (
     <div>
@@ -608,7 +723,7 @@ useEffect(() => {
                   cat={cat}
                   todo={cat.items}
                   index={index}
-                  categories={categoryState}
+                  categories={containers}
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
                   TaskModalOpen={TaskModalOpen}
