@@ -19,11 +19,6 @@ export default function Card({
   setShowTaskModal,
 }: any) {
 
-//   const {
-//   setNodeRef
-// } = useSortable({
-//   id: cat.id
-// });
 
 
   const {
@@ -39,7 +34,7 @@ export default function Card({
   const cardStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isCardDragging ? 0.4 : 1,
+    opacity: isCardDragging ? 0.7 : 1,
   };
 
     const { setNodeRef: setDropRef } = useDroppable({ id: cat.id });
@@ -57,8 +52,7 @@ export default function Card({
 
   return (
     <div  ref={setSortableRef}  style={cardStyle}>
-      {/* <div className={`transition-all duration-200  cursor-grab`}> */}
-        <div className="w-[350px]  b rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+        <div className={`w-[350px]  b rounded-xl shadow-sm border  ${isCardDragging ? 'border-2 border-dotted  border-gray-300  opacity-70 ' : '' }  overflow-hidden hover:shadow-md transition-shadow`}>
           {/* Card Header */}
           <div 
           {...cardAttributes}
@@ -67,7 +61,6 @@ export default function Card({
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold  text-xl  text-gray-800">
-                  {/* {cat.category.charAt(0).toUpperCase() + cat.category.slice(1)} */}
                   {cat.title.toUpperCase()}
                 </h2>
               </div>

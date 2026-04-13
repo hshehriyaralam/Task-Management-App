@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CircleX, LayoutGrid, Plus } from "lucide-react";
 import Card from "@/components/card";
 import type { TodosCategoriesTypes, Container } from "@/type/todo";
@@ -27,7 +27,7 @@ import {
   DragOverlay,
   UniqueIdentifier,
   DragOverEvent,
-  rectIntersection ,
+  rectIntersection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -37,12 +37,13 @@ import {
 import TodoOverlay from "@/components/todoOverlay";
 import CardOverlay from "@/components/cardOverlay";
 
-
 export default function TodoHome({
   todos,
   categories,
   accessToken,
 }: TodosCategoriesTypes) {
+  const [categoryState, setCategoryState] = useState(categories);
+  const [todoState, setTodoState] = useState(todos);
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
   const router = useRouter();
@@ -59,55 +60,63 @@ export default function TodoHome({
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [categoryState, setCategoryState] = useState(categories);
-
 
   const [containers, setContainers] = useState<Container[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const isDraggingRef = useRef(false);
 
-  
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const categoryIds = containers.map((c) => `cat-${c.id}`)
+  const categoryIds = containers.map((c) => `cat-${c.id}`);
 
-const isCategoryDrag = (id: UniqueIdentifier) =>
-  String(id).startsWith("cat-");
+  const buildContainers = (categories: any[], todos: any[]) => {
+    return categories
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map((cat) => ({
+        id: cat.id,
+        title: cat.category,
+        items: todos
+          .filter((t) => t.category_id === cat.id)
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+      }));
+  };
 
-const handleCategoryDragEnd = async (event: DragEndEvent) => {
-  const { active, over } = event;
-  if (!over || active.id === over.id) return;
+  const isCategoryDrag = (id: UniqueIdentifier) =>
+    String(id).startsWith("cat-");
 
-  const activeRaw = String(active.id).replace("cat-", "");
-  const overRaw = String(over.id).replace("cat-", "");
+  const handleCategoryDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-  if (!String(over.id).startsWith("cat-")) return;
+    const activeRaw = String(active.id).replace("cat-", "");
+    const overRaw = String(over.id).replace("cat-", "");
 
-  const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
-  const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
+    if (!String(over.id).startsWith("cat-")) return;
 
-  if (oldIndex === -1 || newIndex === -1) return;
+    const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
+    const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
 
-  const reordered = arrayMove(containers, oldIndex, newIndex);
+    if (oldIndex === -1 || newIndex === -1) return;
 
-  setContainers(reordered);
-  try {
-    await Promise.all(
-      reordered.map((cat, index) =>
-        updateCategory(Number(cat.id), { position: index })
-      )
-    );
-  } catch (err) {
-    console.error("DB update failed (category reorder)", err);
-  }
-};
+    const reordered = arrayMove(containers, oldIndex, newIndex);
 
+    setContainers(reordered);
+    try {
+      await Promise.all(
+        reordered.map((cat, index) =>
+          updateCategory(Number(cat.id), { position: index }),
+        ),
+      );
+    } catch (err) {
+      console.error("DB update failed (category reorder)", err);
+    }
+  };
 
-   const sensor = useSensors(
+  const sensor = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
-    })
-  )
+    }),
+  );
 
   // find active container helper function
   function findContainerId(
@@ -124,18 +133,18 @@ const handleCategoryDragEnd = async (event: DragEndEvent) => {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id);
+    isDraggingRef.current = true; //new
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
 
-      if (isCategoryDrag(active.id)) return;
-    
+    if (isCategoryDrag(active.id)) return;
+
     const activeId = active.id;
     const overId = over.id;
-    
-    
+
     const activeContainerId = findContainerId(activeId);
     const overContainerId = findContainerId(overId);
 
@@ -146,9 +155,6 @@ const handleCategoryDragEnd = async (event: DragEndEvent) => {
     }
 
     if (activeContainerId === overContainerId) return;
-
-
-    
 
     setContainers((prev) => {
       const activeContainer = prev.find((c) => c.id === activeContainerId);
@@ -198,118 +204,115 @@ const handleCategoryDragEnd = async (event: DragEndEvent) => {
     });
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-const handleDragEnd = async (event: DragEndEvent) => {
-  const { active, over } = event;
-
-  if (!over) {
-    setActiveId(null);
-    return;
-  }
-
-  if (isCategoryDrag(active.id)) {
-    handleCategoryDragEnd(event);
-    setActiveId(null);
-    return;
-  }
-
-
-  const activeContainerId = findContainerId(active.id);
-  const overContainerId = findContainerId(over.id);
-
-  if (!activeContainerId || !overContainerId) {
-    setActiveId(null);
-    return;
-  }
-
-  const latestContainers = [...containers];
-
-  const sourceContainer = latestContainers.find(
-    (c) => c.id === activeContainerId
-  );
-  const destinationContainer = latestContainers.find(
-    (c) => c.id === overContainerId
-  );
-
-  if (!sourceContainer || !destinationContainer) {
-    setActiveId(null);
-    return;
-  }
-
-  // 👉 SAME CONTAINER (REORDER)
-  if (activeContainerId === overContainerId) {
-    const activeIndex = sourceContainer.items.findIndex(
-      (item) => item.id === active.id
-    );
-
-    const overIndex = sourceContainer.items.findIndex(
-      (item) => item.id === over.id
-    );
-
-    if (activeIndex !== -1 && overIndex !== -1) {
-      const newItems = arrayMove(
-        sourceContainer.items,
-        activeIndex,
-        overIndex
-      );
-
-      // UI update
-      setContainers((prev) =>
-        prev.map((c) =>
-          c.id === activeContainerId ? { ...c, items: newItems } : c
-        )
-      );
-
-      // DB update (batch)
-      try {
-        await Promise.all(
-          newItems.map((item, index) =>
-            updateTodo(Number(item.id), {
-              position: index,
-              category_id: Number(activeContainerId),
-            })
-          )
-        );
-      } catch (err) {
-        console.error("DB update failed (reorder)", err);
-      }
-    }
-  }
-  else {
-    const movedItem = sourceContainer.items.find(
-      (item) => item.id === active.id
-    );
-
-    if (!movedItem) {
+    if (!over) {
       setActiveId(null);
       return;
     }
 
-    // destination index calculate
-    let newIndex = destinationContainer.items.length;
+    if (isCategoryDrag(active.id)) {
+      handleCategoryDragEnd(event);
+      setActiveId(null);
+      return;
+    }
 
-    if (over.id !== overContainerId) {
-      const overIndex = destinationContainer.items.findIndex(
-        (item) => item.id === over.id
+    const activeContainerId = findContainerId(active.id);
+    const overContainerId = findContainerId(over.id);
+
+    if (!activeContainerId || !overContainerId) {
+      setActiveId(null);
+      return;
+    }
+
+    const latestContainers = [...containers];
+
+    const sourceContainer = latestContainers.find(
+      (c) => c.id === activeContainerId,
+    );
+    const destinationContainer = latestContainers.find(
+      (c) => c.id === overContainerId,
+    );
+
+    if (!sourceContainer || !destinationContainer) {
+      setActiveId(null);
+      return;
+    }
+
+    // REORDER
+    if (activeContainerId === overContainerId) {
+      const activeIndex = sourceContainer.items.findIndex(
+        (item) => item.id === active.id,
       );
-      if (overIndex !== -1) {
-        newIndex = overIndex;
+
+      const overIndex = sourceContainer.items.findIndex(
+        (item) => item.id === over.id,
+      );
+
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const newItems = arrayMove(
+          sourceContainer.items,
+          activeIndex,
+          overIndex,
+        );
+
+        setContainers((prev) =>
+          prev.map((c) =>
+            c.id === activeContainerId ? { ...c, items: newItems } : c,
+          ),
+        );
+
+        // DB update
+        try {
+          await Promise.all(
+            newItems.map((item, index) =>
+              updateTodo(Number(item.id), {
+                position: index,
+                category_id: Number(activeContainerId),
+              }),
+            ),
+          );
+        } catch (err) {
+          console.error("DB update failed (reorder)", err);
+        }
+      }
+    } else {
+      const movedItem = sourceContainer.items.find(
+        (item) => item.id === active.id,
+      );
+
+      if (!movedItem) {
+        setActiveId(null);
+        return;
+      }
+
+      let newIndex = destinationContainer.items.length;
+
+      if (over.id !== overContainerId) {
+        const overIndex = destinationContainer.items.findIndex(
+          (item) => item.id === over.id,
+        );
+        if (overIndex !== -1) {
+          newIndex = overIndex;
+        }
+      }
+
+      try {
+        await updateTodo(Number(movedItem.id), {
+          category_id: Number(overContainerId),
+          position: newIndex,
+        });
+      } catch (err) {
+        console.error("DB update failed (move)", err);
       }
     }
 
-    try {
-      await updateTodo(Number(movedItem.id), {
-        category_id: Number(overContainerId),
-        position: newIndex,
-      });
-    } catch (err) {
-      console.error("DB update failed (move)", err);
-    }
-  }
-
-  setActiveId(null);
-};
-
+    setActiveId(null);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 300); // new
+  };
 
   // Add Todo
   const handleAddTodo = async (e: any) => {
@@ -376,77 +379,112 @@ const handleDragEnd = async (event: DragEndEvent) => {
     return null;
   };
 
-
   const getActiveCard = () => {
-  if (!activeId) return null;
-  const rawId = String(activeId).replace("cat-", "");
-  return containers.find((c) => String(c.id) === rawId) || null;
-};
+    if (!activeId) return null;
+    const rawId = String(activeId).replace("cat-", "");
+    return containers.find((c) => String(c.id) === rawId) || null;
+  };
 
 
 
 
-  useEffect(() => {
-    const supabase = createClient();
+useEffect(() => {
+  const supabase = createClient();
 
-    const channel = supabase
-      .channel("categories-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "categories",
-        },
-        (payload) => {
-          const { eventType, new: newRecord, old } = payload;
+  const todoChannel = supabase
+    .channel("todos-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "todos" },
+      (payload) => {
+        const { eventType, new: newRecord, old } = payload;
 
+        if (isDraggingRef.current) return; 
+
+        setContainers((prev) => {
           if (eventType === "INSERT") {
-            setCategoryState((prev) => [...prev, newRecord]);
-          }
-
-          if (eventType === "UPDATE") {
-            setCategoryState((prev) =>
-              prev.map((c) => (c.id === newRecord.id ? newRecord : c)),
+            return prev.map((c) =>
+              c.id === newRecord.category_id
+                ? { ...c, items: [...c.items, newRecord] }
+                : c
             );
           }
 
-          if (eventType === "DELETE") {
-            setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
+          if (eventType === "UPDATE") {
+            return prev.map((c) => ({
+              ...c,
+              items: c.items.map((t) =>
+                t.id === newRecord.id
+                  ? { ...t, task: newRecord.task, is_complete: newRecord.is_complete }
+                  : t
+              ),
+            }));
           }
-        },
-      )
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+          if (eventType === "DELETE") {
+            return prev.map((c) => ({
+              ...c,
+              items: c.items.filter((t) => t.id !== old.id),
+            }));
+          }
 
-  useEffect(() => {
-    const initial = categories.map((cat) => ({
-      id: cat.id,
-      title: cat.category,
-      items: todos.filter((t) => t.category_id === cat.id),
-    }));
+          return prev;
+        });
+      }
+    )
+    .subscribe();
 
-    setContainers(initial);
-    setHydrated(true);
-  }, []);
+  return () => {
+    supabase.removeChannel(todoChannel);
+  };
+}, []); // new 
+
+
 
 useEffect(() => {
-  const initial = categories
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) // ✅ sort by position
-    .map((cat) => ({
-      id: cat.id,
-      title: cat.category,
-      items: todos
-        .filter((t) => t.category_id === cat.id)
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    }));
+  const supabase = createClient();
 
+  const channel = supabase
+    .channel("categories-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "categories" },
+      (payload) => {
+        const { eventType, new: newRecord, old } = payload;
+
+        
+        if (eventType === "INSERT") setCategoryState((prev) => [...prev, newRecord]);
+        if (eventType === "UPDATE") setCategoryState((prev) => prev.map((c) => c.id === newRecord.id ? newRecord : c));
+        if (eventType === "DELETE") setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
+
+        if (isDraggingRef.current) return;
+
+        setContainers((prev) => {
+          if (eventType === "INSERT") {
+            return [...prev, { id: newRecord.id, title: newRecord.category, items: [] }];
+          }
+          if (eventType === "DELETE") {
+            return prev.filter((c) => c.id !== old.id);
+          }
+          if (eventType === "UPDATE") {
+            return prev.map((c) =>
+              c.id === newRecord.id ? { ...c, title: newRecord.category } : c
+            );
+          }
+          return prev;
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);  
+
+  useEffect(() => {
+  const initial = buildContainers(categories, todos);
   setContainers(initial);
-  setHydrated(true);
 }, []);
 
 
@@ -521,35 +559,35 @@ useEffect(() => {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          {/* <div> */}
-            <SortableContext
-            items={categoryIds} strategy={horizontalListSortingStrategy}
-              >
+          <SortableContext
+            items={categoryIds}
+            strategy={horizontalListSortingStrategy}
+          >
             <div className="flex gap-5 overflow-x-auto custom-scrollbar">
               {containers?.map((cat, index) => (
-                  <Card
-                   key={`container-${cat.id}`}
-                    cat={cat}
-                    todo={cat.items}
-                    index={index}
-                    categories={categoryState}
-                    handleDelete={handleDelete}
-                    handleEdit={handleEdit}
-                    setShowTaskModal={setShowTaskModal}
-                  />
+                <Card
+                  key={`container-${cat.id}`}
+                  cat={cat}
+                  todo={cat.items}
+                  index={index}
+                  categories={categoryState}
+                  handleDelete={handleDelete}
+                  handleEdit={handleEdit}
+                  setShowTaskModal={setShowTaskModal}
+                />
               ))}
             </div>
-            </SortableContext>
+          </SortableContext>
 
           <DragOverlay>
-            {activeId && isCategoryDrag(activeId)
-              ? 
-               <CardOverlay
+            {activeId && isCategoryDrag(activeId) ? (
+              <CardOverlay
                 cat={getActiveCard()}
-                todo={getActiveCard()?.items || []}/>
-              : activeId
-              ? <TodoOverlay>{getActiveItem()?.task}</TodoOverlay>
-              : null}
+                todo={getActiveCard()?.items || []}
+              />
+            ) : activeId ? (
+              <TodoOverlay>{getActiveItem()?.task}</TodoOverlay>
+            ) : null}
           </DragOverlay>
         </DndContext>
       </div>
