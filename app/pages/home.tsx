@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { CircleX, LayoutGrid, Plus } from "lucide-react";
 import Card from "@/components/card";
 import type { TodosCategoriesTypes, Container } from "@/type/todo";
@@ -43,10 +43,13 @@ export default function TodoHome({
   accessToken,
 }: TodosCategoriesTypes) {
   const [categoryState, setCategoryState] = useState(categories);
-  const [todoState, setTodoState] = useState(todos);
+  // const [todoState, setTodoState] = useState(todos);
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
+  const [modalTodo, setModalTodo] = useState('')
+  const [modalCategory, setModalCategory] = useState<number | null>(null);
   const router = useRouter();
+
 
   // for edit todo States
   const [isOpen, setIsOpen] = useState(false);
@@ -80,10 +83,36 @@ export default function TodoHome({
   };
 
   const latestTodosRef = useRef(todos);
-const latestCategoriesRef = useRef(categories);
+  const latestCategoriesRef = useRef(categories);
 
   const isCategoryDrag = (id: UniqueIdentifier) =>
     String(id).startsWith("cat-");
+
+
+  const TaskModalOpen = useCallback((categoryId : number) => {
+    setShowTaskModal(true)
+    setModalCategory(categoryId)
+    console.log("modal category", modalCategory)
+    setTodo('')
+    setCategory('')
+    setModalTodo('') 
+    setNewCategory('')
+    
+  },[])
+
+  const handleCancelModal = useCallback(() =>  {
+    setIsOpen(false)
+    setShowModal(false)
+    setShowTaskModal(false)
+    setTodo('')
+    setCategory('')
+    setModalCategory(null)
+    setModalTodo('') 
+    setNewCategory('')
+    setEditText('')
+    setEditTodoId(null)
+    
+  },[])
 
   const handleCategoryDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -389,111 +418,6 @@ const latestCategoriesRef = useRef(categories);
   };
 
 
-
-
-// useEffect(() => {
-//   const supabase = createClient();
-
-//   const todoChannel = supabase
-//     .channel("todos-realtime")
-//     .on(
-//       "postgres_changes",
-//       { event: "*", schema: "public", table: "todos" },
-//       (payload) => {
-//         const { eventType, new: newRecord, old } = payload;
-
-//         // if (isDraggingRef.current) return; 
-
-//         setContainers((prev) => {
-//           if (eventType === "INSERT") {
-//             return prev.map((c) =>
-//               c.id === newRecord.category_id
-//                 ? { ...c, items: [...c.items, newRecord] }
-//                 : c
-//             );
-//           }
-
-//           if (eventType === "UPDATE") {
-//             return prev.map((c) => ({
-//               ...c,
-//               items: c.items.map((t) =>
-//                 t.id === newRecord.id
-//                   ? { ...t, task: newRecord.task, is_complete: newRecord.is_complete }
-//                   : t
-//               ),
-//             }));
-//           }
-
-//           if (eventType === "DELETE") {
-//             return prev.map((c) => ({
-//               ...c,
-//               items: c.items.filter((t) => t.id !== old.id),
-//             }));
-//           }
-
-//           return prev;
-//         });
-//       }
-//     )
-//     .subscribe();
-
-//   return () => {
-//     supabase.removeChannel(todoChannel);
-//   };
-// }, []);
-
-
-
-// useEffect(() => {
-//   const supabase = createClient();
-
-//   const channel = supabase
-//     .channel("categories-realtime")
-//     .on(
-//       "postgres_changes",
-//       { event: "*", schema: "public", table: "categories" },
-//       (payload) => {
-//         const { eventType, new: newRecord, old } = payload;
-
-        
-//         if (eventType === "INSERT") setCategoryState((prev) => [...prev, newRecord]);
-//         if (eventType === "UPDATE") setCategoryState((prev) => prev.map((c) => c.id === newRecord.id ? newRecord : c));
-//         if (eventType === "DELETE") setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
-
-//         // if (isDraggingRef.current) return;
-
-//         setContainers((prev) => {
-//           if (eventType === "INSERT") {
-//             return [...prev, { id: newRecord.id, title: newRecord.category, items: [] }];
-//           }
-//           if (eventType === "DELETE") {
-//             return prev.filter((c) => c.id !== old.id);
-//           }
-//           if (eventType === "UPDATE") {
-//             return prev.map((c) =>
-//               c.id === newRecord.id ? { ...c, title: newRecord.category } : c
-//             );
-//           }
-//           return prev;
-//         });
-//       }
-//     )
-//     .subscribe();
-
-//   return () => {
-//     supabase.removeChannel(channel);
-//   };
-// }, []);  
-
-
-
-//   useEffect(() => {
-//   const initial = buildContainers(categories, todos);
-//   setContainers(initial);
-// }, []);
-
-
-
 useEffect(() => {
   const supabase = createClient();
 
@@ -630,9 +554,9 @@ useEffect(() => {
               onChange={(e) => setCategory(e.target.value)}
               className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             >
-              {categoryState.map((cat, index) => (
+              {containers.map((cat, index) => (
                 <option className="text-gray-700" key={index} value={cat.id}>
-                  THIS {cat.category.toUpperCase()}
+                  THIS {cat.title.toUpperCase()}
                 </option>
               ))}
             </select>
@@ -687,7 +611,7 @@ useEffect(() => {
                   categories={categoryState}
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
-                  setShowTaskModal={setShowTaskModal}
+                  TaskModalOpen={TaskModalOpen}
                 />
               ))}
             </div>
@@ -711,7 +635,7 @@ useEffect(() => {
       {showModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setShowModal(false)}
+          onClick={handleCancelModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -722,8 +646,8 @@ useEffect(() => {
                 Create New Board
               </h2>
               <CircleX
-                onClick={() => setShowModal(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleAddCategory}>
@@ -746,7 +670,7 @@ useEffect(() => {
                 <Button
                   disabled={loading}
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer "
                 >
                   Cancel
@@ -761,7 +685,7 @@ useEffect(() => {
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsOpen(false)}
+          onClick={handleCancelModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -770,8 +694,8 @@ useEffect(() => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">Edit Task</h2>
               <CircleX
-                onClick={() => setIsOpen(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleUpdate}>
@@ -792,7 +716,7 @@ useEffect(() => {
                 </button>
                 <Button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer "
                 >
                   Cancel
@@ -806,8 +730,7 @@ useEffect(() => {
       {showTaskModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsOpen(false)}
-        >
+          onClick={handleCancelModal}>
           <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
@@ -815,8 +738,8 @@ useEffect(() => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">Add Task</h2>
               <CircleX
-                onClick={() => setShowTaskModal(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6 cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleAddTodo}>
@@ -826,28 +749,15 @@ useEffect(() => {
                   name="todo"
                   type="text"
                   placeholder="Enter your task..."
-                  value={todo}
-                  onChange={(e) => setTodo(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
-                />
-
-                <select
-                  title="Select Category"
-                  name="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="h-12 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                >
-                  {categoryState.map((cat, index) => (
-                    <option
-                      className="text-gray-700  text-[13px]"
-                      key={index}
-                      value={cat.id}
-                    >
-                      THIS {cat.category.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
+                  value={modalTodo}
+                  onChange={(e) => setModalTodo(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 
+                  transition-all text-gray-700 mb-4" />
+                    <input
+                      type="hidden"
+                      name="category"
+                      value={modalCategory ?? ""}
+                    />
               </div>
 
               <div className="flex gap-3">
@@ -860,7 +770,7 @@ useEffect(() => {
                 <Button
                   disabled={loading}
                   type="button"
-                  onClick={() => setShowTaskModal(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer "
                 >
                   Cancel

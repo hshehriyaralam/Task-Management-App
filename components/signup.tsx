@@ -2,32 +2,24 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter } from 'next/navigation'
 import { Spinner } from "./ui/spinner";
 import { Button } from "./ui/button";
-
-// type EmalPasswordProp = {
-//   user: User | null;
-// };
 
 export default function SignUpForm() {
     const router = useRouter()
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-
   const supabase = getSupabaseBrowserClient();
-
   const [loading, setLoading] = useState(false);
+
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (loading) return;
     setLoading(true);
-
     try {
       const { error } = await supabase.auth.signUp({
         email,

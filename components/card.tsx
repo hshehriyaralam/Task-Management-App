@@ -16,7 +16,7 @@ export default function Card({
   categories,
   handleDelete,
   handleEdit,
-  setShowTaskModal,
+  TaskModalOpen,
 }: any) {
 
 
@@ -48,7 +48,6 @@ export default function Card({
     await deleteCategory(cat.id);
     toast.success("Card Successfully Deleted", { position: "top-center" });
   };
-
 
   return (
     <div  ref={setSortableRef}  style={cardStyle}>
@@ -98,7 +97,7 @@ export default function Card({
 
             <div className="p-1 flex items-center justify-start mx-3 my-1">
               <button
-                onClick={() => setShowTaskModal(true)}
+                onClick={() => TaskModalOpen(cat.id)}
                 className="px-2 py-1.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 flex items-center gap-2 justify-center text-sm  cursor-pointer "
               >
                 <Plus className="w-3 h-3" />
