@@ -80,6 +80,7 @@ export default function TodoHome({
   const [containers, setContainers] = useState<Container[]>([]);
   const isDraggingRef = useRef(false);
   const containersRef = useRef(containers);
+  const isSyncingRef = useRef(false);
 
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const latestContainersRef = useRef<Container[]>([]);
@@ -133,6 +134,7 @@ export default function TodoHome({
         updateQueueRef.current = [];
 
         await updateTodosBulk(payload);
+        
       } catch (err) {
         console.error("Batch update failed", err);
         updateQueueRef.current.push(...payload);
@@ -184,8 +186,18 @@ export default function TodoHome({
   if (!payload.length) return;
 
   updateQueueRef.current = [];
-  await updateTodosBulk(payload);
-  
+
+  try {
+    await updateTodosBulk(payload);
+
+    // ✅ HERE IS THE FIX
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 500);
+
+  } catch (err) {
+    console.error(err);
+  }
 };
 
 
@@ -254,6 +266,7 @@ export default function TodoHome({
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id);
     isDraggingRef.current = true;
+    isSyncingRef.current = true;
   }, []);
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
@@ -475,9 +488,12 @@ export default function TodoHome({
     [containers],
   );
 
+ 
+
   // Add Todo
   const handleAddTodo = async (e:any) => {
   e.preventDefault();
+  setLoading(true)
   const tempId = Date.now(); 
   const formData = new FormData(e.currentTarget);
   updateContainers(prev =>
@@ -487,10 +503,11 @@ export default function TodoHome({
         : cat
     )
   );
-    setTodo("");
-    setCategory("");
-    setShowTaskModal(false);
+  setLoading(false)
+  setTodo("");
+  setCategory("");
   try {
+    setShowTaskModal(false);
     await addTodo(formData);
   } catch (err) {
     updateContainers(prev =>
@@ -499,8 +516,6 @@ export default function TodoHome({
         items: cat.items.filter(t => t.id !== tempId),
       }))
     );
-  }finally{
-    setLoading(false)
   }
   toast.success("Todo Successfully Added", { position: "top-center" });
 
@@ -651,7 +666,8 @@ const handleAddCategory = async (e: any) => {
         "postgres_changes",
         { event: "*", schema: "public", table: "todos" },
         (payload) => {
-          // if (isDraggingRef.current) return;
+          if (isDraggingRef.current) return;
+          if (isSyncingRef.current) return;
 
           const { eventType, new: newRecord, old } = payload;
 
@@ -673,9 +689,16 @@ const handleAddCategory = async (e: any) => {
 
           latestTodosRef.current = updatedTodos;
 
-          setContainers(
-            buildContainers(latestCategoriesRef.current, updatedTodos),
-          );
+          setContainers(prev => {
+          return prev.map(container => {
+            return {
+              ...container,
+              items: container.items.map(item =>
+                updatedTodos.find(t => t.id === item.id) ?? item
+              ),
+            };
+          });
+        });
         },
       )
       .subscribe();
@@ -694,6 +717,7 @@ const handleAddCategory = async (e: any) => {
       "postgres_changes",
       { event: "*", schema: "public", table: "categories" },
       (payload) => {
+          if (isDraggingRef.current) return;
         const { eventType, new: newRecord, old } = payload;
 
         let updatedCategories = [...latestCategoriesRef.current];
