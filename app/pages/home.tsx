@@ -184,13 +184,10 @@ export default function TodoHome({
 
   const payload = [...updateQueueRef.current];
   if (!payload.length) return;
-
   updateQueueRef.current = [];
 
   try {
     await updateTodosBulk(payload);
-
-    // ✅ HERE IS THE FIX
     setTimeout(() => {
       isSyncingRef.current = false;
     }, 500);
