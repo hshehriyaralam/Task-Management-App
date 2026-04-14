@@ -1,5 +1,33 @@
+
+Error  : 
+Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+
+
+
+like Trello behaviour 
+
+1. 🧠 Optimistic UI Update (Sabse important)   || Done 
+2. 📦 Batch API Calls (Har drag pe request nahi) || Done 
+3. ⏳ Debouncing / Throttling
+4. 🔄 Only Position Change Send karo (Full Data nahi)
+5. 🧩 Floating Position System (Smart Trick)
+6. 🔌 WebSockets / Realtime Sync
+7. 🛑 Rollback Mechanism (Error Handle)
+
+
+
+
+
+// Important Issue 
+Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+
+
+
+
+
+Solve Todo Drag and drop issue 
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { CircleX, LayoutGrid, Plus } from "lucide-react";
 import Card from "@/components/card";
 import type { TodosCategoriesTypes, Container } from "@/type/todo";
@@ -37,15 +65,30 @@ import {
 import TodoOverlay from "@/components/todoOverlay";
 import CardOverlay from "@/components/cardOverlay";
 
+export async function updateTodosBulk(items: any[]) {
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("reorder_todos", {
+    items,
+  });
+
+  if (error) {
+    console.error("Bulk update failed", error);
+    throw error;
+  }
+}
+
+
+
 export default function TodoHome({
   todos,
   categories,
   accessToken,
 }: TodosCategoriesTypes) {
-  const [categoryState, setCategoryState] = useState(categories);
-  const [todoState, setTodoState] = useState(todos);
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
+  const [modalTodo, setModalTodo] = useState("");
+  const [modalCategory, setModalCategory] = useState<number | null>(null);
   const router = useRouter();
 
   // for edit todo States
@@ -63,11 +106,55 @@ export default function TodoHome({
 
   const [containers, setContainers] = useState<Container[]>([]);
   const isDraggingRef = useRef(false);
+  const containersRef = useRef(containers);
 
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const categoryIds = containers.map((c) => `cat-${c.id}`);
+  const categoryIds = useMemo(
+    () => containers.map((c) => `cat-${c.id}`),
+    [containers],
+  );
 
-  const buildContainers = (categories: any[], todos: any[]) => {
+  // for Optimistic UI
+  const optimisticRef = useRef<Container[] | null>(null);
+
+  // for Bulk API call
+  const updateQueueRef = useRef<any[]>([]);
+  const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // for Bulk API call
+  const scheduleBatchUpdate = useCallback((items: any[]) => {
+    updateQueueRef.current = [...updateQueueRef.current, ...items];
+
+    // deduplicate by id (VERY IMPORTANT)
+    const map = new Map();
+
+    for (const item of updateQueueRef.current) {
+      map.set(item.id, item);
+    }
+
+    updateQueueRef.current = Array.from(map.values());
+
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+    }
+
+    batchTimerRef.current = setTimeout(async () => {
+      const payload = [...updateQueueRef.current];
+      try {
+
+        if (payload.length === 0) return;
+
+        updateQueueRef.current = [];
+
+        await updateTodosBulk(payload);
+      } catch (err) {
+        console.error("Batch update failed", err);
+        updateQueueRef.current.push(...payload);
+      }
+    }, 400);
+  }, []);
+
+  const buildContainers = useCallback((categories: any[], todos: any[]) => {
     return categories
       .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
       .map((cat) => ({
@@ -77,49 +164,12 @@ export default function TodoHome({
           .filter((t) => t.category_id === cat.id)
           .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
       }));
-  };
+  }, []);
 
   const latestTodosRef = useRef(todos);
-const latestCategoriesRef = useRef(categories);
+  const latestCategoriesRef = useRef(categories);
 
-  const isCategoryDrag = (id: UniqueIdentifier) =>
-    String(id).startsWith("cat-");
-
-  const handleCategoryDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const activeRaw = String(active.id).replace("cat-", "");
-    const overRaw = String(over.id).replace("cat-", "");
-
-    if (!String(over.id).startsWith("cat-")) return;
-
-    const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
-    const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
-
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(containers, oldIndex, newIndex);
-
-    setContainers(reordered);
-    try {
-      await Promise.all(
-        reordered.map((cat, index) =>
-          updateCategory(Number(cat.id), { position: index }),
-        ),
-      );
-    } catch (err) {
-      console.error("DB update failed (category reorder)", err);
-    }
-  };
-
-  const sensor = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-  );
+  
 
   // find active container helper function
   function findContainerId(
@@ -134,191 +184,313 @@ const latestCategoriesRef = useRef(categories);
     return container?.id;
   }
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id);
-     isDraggingRef.current = true; 
-  };
+  const isCategoryDrag = useCallback((id: UniqueIdentifier) => {
+    return String(id).startsWith("cat-");
+  }, []);
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
+  const flushBatch = async () => {
+  if (batchTimerRef.current) {
+    clearTimeout(batchTimerRef.current);
+    batchTimerRef.current = null;
+  }
 
-    if (isCategoryDrag(active.id)) return;
+  const payload = [...updateQueueRef.current];
+  if (!payload.length) return;
 
-    const activeId = active.id;
-    const overId = over.id;
+  updateQueueRef.current = [];
+  await updateTodosBulk(payload);
+  
+};
 
-    const activeContainerId = findContainerId(activeId);
-    const overContainerId = findContainerId(overId);
 
-    if (!activeContainerId || !overContainerId) return;
+  const TaskModalOpen = useCallback((categoryId: number) => {
+    setShowTaskModal(true);
+    setModalCategory(categoryId);
+    console.log("modal category", modalCategory);
+    setTodo("");
+    setCategory("");
+    setModalTodo("");
+    setNewCategory("");
+  }, []);
 
-    if (activeContainerId === overContainerId && activeId !== overId) {
-      return;
-    }
+  const handleCancelModal = useCallback(() => {
+    setIsOpen(false);
+    setShowModal(false);
+    setShowTaskModal(false);
+    setTodo("");
+    setCategory("");
+    setModalCategory(null);
+    setModalTodo("");
+    setNewCategory("");
+    setEditText("");
+    setEditTodoId(null);
+  }, []);
 
-    if (activeContainerId === overContainerId) return;
+  const handleCategoryDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-    setContainers((prev) => {
-      const activeContainer = prev.find((c) => c.id === activeContainerId);
-      if (!activeContainer) return prev;
+      const activeRaw = String(active.id).replace("cat-", "");
+      const overRaw = String(over.id).replace("cat-", "");
 
-      const activeItem = activeContainer.items.find(
-        (item) => item.id === activeId,
-      );
-      if (!activeItem) return prev;
+      if (!String(over.id).startsWith("cat-")) return;
 
-      const newContainers = prev.map((container) => {
-        if (container.id === activeContainerId) {
-          return {
-            ...container,
-            items: container.items.filter((item) => item.id !== activeId),
-          };
-        }
+      const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
+      const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
 
-        if (container.id === overContainerId) {
-          if (overId === overContainerId) {
-            return {
-              ...container,
-              items: [...container.items, activeItem],
-            };
-          }
+      if (oldIndex === -1 || newIndex === -1) return;
 
-          const overItemIndex = container.items.findIndex(
-            (item) => item.id === overId,
-          );
-          if (overItemIndex !== -1) {
-            const activeItemCopy = { ...activeItem };
-            return {
-              ...container,
-              items: [
-                ...container.items.slice(0, overItemIndex + 1),
-                activeItem,
-                ...container.items.slice(overItemIndex + 1),
-              ],
-            };
-          }
-        }
+      const reordered = arrayMove(containers, oldIndex, newIndex);
 
-        return container;
-      });
-
-      return newContainers;
-    });
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (!over) {
-      setActiveId(null);
-      return;
-    }
-
-    if (isCategoryDrag(active.id)) {
-      handleCategoryDragEnd(event);
-      setActiveId(null);
-      return;
-    }
-
-    const activeContainerId = findContainerId(active.id);
-    const overContainerId = findContainerId(over.id);
-
-    if (!activeContainerId || !overContainerId) {
-      setActiveId(null);
-      return;
-    }
-
-    const latestContainers = [...containers];
-
-    const sourceContainer = latestContainers.find(
-      (c) => c.id === activeContainerId,
-    );
-    const destinationContainer = latestContainers.find(
-      (c) => c.id === overContainerId,
-    );
-
-    if (!sourceContainer || !destinationContainer) {
-      setActiveId(null);
-      return;
-    }
-
-    // REORDER
-    if (activeContainerId === overContainerId) {
-      const activeIndex = sourceContainer.items.findIndex(
-        (item) => item.id === active.id,
-      );
-
-      const overIndex = sourceContainer.items.findIndex(
-        (item) => item.id === over.id,
-      );
-
-      if (activeIndex !== -1 && overIndex !== -1) {
-        const newItems = arrayMove(
-          sourceContainer.items,
-          activeIndex,
-          overIndex,
-        );
-
-        setContainers((prev) =>
-          prev.map((c) =>
-            c.id === activeContainerId ? { ...c, items: newItems } : c,
+      setContainers(reordered);
+      try {
+        await Promise.all(
+          reordered.map((cat, index) =>
+            updateCategory(Number(cat.id), { position: index }),
           ),
         );
-
-        // DB update
-        try {
-          await Promise.all(
-            newItems.map((item, index) =>
-              updateTodo(Number(item.id), {
-                position: index,
-                category_id: Number(activeContainerId),
-              }),
-            ),
-          );
-        } catch (err) {
-          console.error("DB update failed (reorder)", err);
-        }
+      } catch (err) {
+        console.error("DB update failed (category reorder)", err);
       }
-    } else {
-      const movedItem = sourceContainer.items.find(
-        (item) => item.id === active.id,
-      );
+    },
+    [containers],
+  );
 
-      if (!movedItem) {
+  const sensor = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id);
+    isDraggingRef.current = true;
+  }, []);
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+
+      if (isCategoryDrag(active.id)) return;
+
+      const activeId = active.id;
+      const overId = over.id;
+
+      const activeContainerId = findContainerId(activeId);
+      const overContainerId = findContainerId(overId);
+
+      if (!activeContainerId || !overContainerId) return;
+
+      if (activeContainerId === overContainerId && activeId !== overId) {
+        return;
+      }
+
+      if (activeContainerId === overContainerId) return;
+
+      setContainers((prev) => {
+        const activeContainer = prev.find((c) => c.id === activeContainerId);
+        if (!activeContainer) return prev;
+
+        const activeItem = activeContainer.items.find(
+          (item) => item.id === activeId,
+        );
+        if (!activeItem) return prev;
+
+        const newContainers = prev.map((container) => {
+          if (container.id === activeContainerId) {
+            return {
+              ...container,
+              items: container.items.filter((item) => item.id !== activeId),
+            };
+          }
+
+          if (container.id === overContainerId) {
+            if (overId === overContainerId) {
+              return {
+                ...container,
+                items: [...container.items, activeItem],
+              };
+            }
+
+            const overItemIndex = container.items.findIndex(
+              (item) => item.id === overId,
+            );
+            if (overItemIndex !== -1) {
+              const activeItemCopy = { ...activeItem };
+              return {
+                ...container,
+                items: [
+                  ...container.items.slice(0, overItemIndex + 1),
+                  activeItem,
+                  ...container.items.slice(overItemIndex + 1),
+                ],
+              };
+            }
+          }
+
+          return container;
+        });
+
+        return newContainers;
+      });
+    },
+    [containers],
+  );
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over) {
         setActiveId(null);
         return;
       }
 
-      let newIndex = destinationContainer.items.length;
+      if (isCategoryDrag(active.id)) {
+        handleCategoryDragEnd(event);
+        setActiveId(null);
+        return;
+      }
 
-      if (over.id !== overContainerId) {
-        const overIndex = destinationContainer.items.findIndex(
+      const activeContainerId = findContainerId(active.id);
+      const overContainerId = findContainerId(over.id);
+
+      if (!activeContainerId || !overContainerId) {
+        setActiveId(null);
+        return;
+      }
+
+      const latestContainers = [...containers];
+
+      const sourceContainer = latestContainers.find(
+        (c) => c.id === activeContainerId,
+      );
+      const destinationContainer = latestContainers.find(
+        (c) => c.id === overContainerId,
+      );
+
+      if (!sourceContainer || !destinationContainer) {
+        setActiveId(null);
+        return;
+      }
+
+      // REORDER
+      if (activeContainerId === overContainerId) {
+        const activeIndex = sourceContainer.items.findIndex(
+          (item) => item.id === active.id,
+        );
+
+        const overIndex = sourceContainer.items.findIndex(
           (item) => item.id === over.id,
         );
-        if (overIndex !== -1) {
-          newIndex = overIndex;
+
+        if (activeIndex !== -1 && overIndex !== -1) {
+          const newItems = arrayMove(
+            sourceContainer.items,
+            activeIndex,
+            overIndex,
+          );
+
+          // for optimistic UI
+          const nextState = (() => {
+            const latestContainers = [...containers];
+
+            const sourceContainer = latestContainers.find(
+              (c) => c.id === activeContainerId,
+            );
+
+            const destinationContainer = latestContainers.find(
+              (c) => c.id === overContainerId,
+            );
+
+            if (!sourceContainer || !destinationContainer)
+              return latestContainers;
+
+            if (activeContainerId === overContainerId) {
+              const activeIndex = sourceContainer.items.findIndex(
+                (item) => item.id === active.id,
+              );
+
+              const overIndex = sourceContainer.items.findIndex(
+                (item) => item.id === over.id,
+              );
+
+              const newItems = arrayMove(
+                sourceContainer.items,
+                activeIndex,
+                overIndex,
+              );
+
+              return latestContainers.map((c) =>
+                c.id === activeContainerId ? { ...c, items: newItems } : c,
+              );
+            }
+
+            return latestContainers;
+          })();
+
+          optimisticRef.current = nextState;
+          setContainers(nextState);
+
+          // DB update
+          try {
+            scheduleBatchUpdate(
+              newItems.map((item, index) => ({
+                id: Number(item.id),
+                position: index,
+                category_id: Number(activeContainerId),
+              })),
+            );
+          } catch (err) {
+            console.error("DB update failed (reorder)", err);
+          }
+        }
+      } else {
+        const movedItem = sourceContainer.items.find(
+          (item) => item.id === active.id,
+        );
+
+        if (!movedItem) {
+          setActiveId(null);
+          return;
+        }
+
+        let newIndex = destinationContainer.items.length;
+
+        if (over.id !== overContainerId) {
+          const overIndex = destinationContainer.items.findIndex(
+            (item) => item.id === over.id,
+          );
+          if (overIndex !== -1) {
+            newIndex = overIndex;
+          }
+        }
+
+        try {
+          scheduleBatchUpdate([
+            {
+              id: Number(movedItem.id),
+              position: newIndex,
+              category_id: Number(overContainerId),
+            },
+          ]);
+        } catch (err) {
+          console.error("DB update failed (move)", err);
         }
       }
 
-      try {
-        await updateTodo(Number(movedItem.id), {
-          category_id: Number(overContainerId),
-          position: newIndex,
-        });
-      } catch (err) {
-        console.error("DB update failed (move)", err);
-      }
-    }
-
-    setActiveId(null);
-    setTimeout(() => {
-  isDraggingRef.current = false;
-}, 300);
-  };
+      setActiveId(null);
+      optimisticRef.current = null;
+      await flushBatch();
+    },
+    [containers],
+  );
 
   // Add Todo
-  const handleAddTodo = async (e: any) => {
+  const handleAddTodo = useCallback(async (e: any) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
@@ -328,9 +500,10 @@ const latestCategoriesRef = useRef(categories);
     setShowTaskModal(false);
     setLoading(false);
     toast.success("Todo Successfully Added", { position: "top-center" });
-  };
+  }, []);
+
   // Add  category
-  const handleAddCategory = async (e: any) => {
+  const handleAddCategory = useCallback(async (e: any) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
@@ -339,40 +512,46 @@ const latestCategoriesRef = useRef(categories);
     setShowModal(false);
     setNewCategory("");
     toast.success("New Card Successfully Added", { position: "top-center" });
-  };
+  }, []);
+
   // Delete Todo
-  const handleDelete = async (id: number) => {
+  const handleDelete = useCallback(async (id: number) => {
     try {
       await deleteTodo(id);
       toast.success("Todo Successfully Deleted", { position: "top-center" });
     } catch (error) {
       toast.error("Failed to delete todo", { position: "top-center" });
     }
-  };
+  }, []);
+
   // show Edit Modal
-  const handleEdit = (todo: any) => {
+  const handleEdit = useCallback((todo: any) => {
     setIsOpen(true);
     setEditTodoId(todo.id);
     setEditText(todo.task);
     setTodo("");
-  };
+  }, []);
+
   // Update Todo
-  const handleUpdate = async (e: any) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      if (!editTodoId) return;
-      await updateTodo(editTodoId, {
-        task: editText,
-      });
-      setIsOpen(false);
-      toast.success("Todo Successfully Updated", { position: "top-center" });
-    } catch (error) {
-      alert("Failed to Update Todo");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleUpdate = useCallback(
+    async (e: any) => {
+      e.preventDefault();
+      try {
+        setLoading(true);
+        if (!editTodoId) return;
+        await updateTodo(editTodoId, {
+          task: editText,
+        });
+        setIsOpen(false);
+        toast.success("Todo Successfully Updated", { position: "top-center" });
+      } catch (error) {
+        alert("Failed to Update Todo");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [editTodoId, editText],
+  );
 
   const getActiveItem = () => {
     for (const container of containers) {
@@ -388,223 +567,80 @@ const latestCategoriesRef = useRef(categories);
     return containers.find((c) => String(c.id) === rawId) || null;
   };
 
+  useEffect(() => {
+    latestTodosRef.current = todos;
+    latestCategoriesRef.current = categories;
 
+    setContainers(buildContainers(categories, todos));
+  }, [todos, categories]);
 
+  useEffect(() => {
+    const supabase = createClient();
 
-// useEffect(() => {
-//   const supabase = createClient();
+    const todoChannel = supabase
+      .channel("todos-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "todos" },
+        (payload) => {
+          if (isDraggingRef.current) return;
 
-//   const todoChannel = supabase
-//     .channel("todos-realtime")
-//     .on(
-//       "postgres_changes",
-//       { event: "*", schema: "public", table: "todos" },
-//       (payload) => {
-//         const { eventType, new: newRecord, old } = payload;
+          const { eventType, new: newRecord, old } = payload;
 
-//         // if (isDraggingRef.current) return; 
+          let updatedTodos = [...latestTodosRef.current];
 
-//         setContainers((prev) => {
-//           if (eventType === "INSERT") {
-//             return prev.map((c) =>
-//               c.id === newRecord.category_id
-//                 ? { ...c, items: [...c.items, newRecord] }
-//                 : c
-//             );
-//           }
+          if (eventType === "INSERT") {
+            updatedTodos.push(newRecord);
+          }
 
-//           if (eventType === "UPDATE") {
-//             return prev.map((c) => ({
-//               ...c,
-//               items: c.items.map((t) =>
-//                 t.id === newRecord.id
-//                   ? { ...t, task: newRecord.task, is_complete: newRecord.is_complete }
-//                   : t
-//               ),
-//             }));
-//           }
+          if (eventType === "UPDATE") {
+            updatedTodos = updatedTodos.map((t) =>
+              t.id === newRecord.id ? newRecord : t,
+            );
+          }
 
-//           if (eventType === "DELETE") {
-//             return prev.map((c) => ({
-//               ...c,
-//               items: c.items.filter((t) => t.id !== old.id),
-//             }));
-//           }
+          if (eventType === "DELETE") {
+            updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
+          }
 
-//           return prev;
-//         });
-//       }
-//     )
-//     .subscribe();
+          latestTodosRef.current = updatedTodos;
 
-//   return () => {
-//     supabase.removeChannel(todoChannel);
-//   };
-// }, []);
-
-
-
-// useEffect(() => {
-//   const supabase = createClient();
-
-//   const channel = supabase
-//     .channel("categories-realtime")
-//     .on(
-//       "postgres_changes",
-//       { event: "*", schema: "public", table: "categories" },
-//       (payload) => {
-//         const { eventType, new: newRecord, old } = payload;
-
-        
-//         if (eventType === "INSERT") setCategoryState((prev) => [...prev, newRecord]);
-//         if (eventType === "UPDATE") setCategoryState((prev) => prev.map((c) => c.id === newRecord.id ? newRecord : c));
-//         if (eventType === "DELETE") setCategoryState((prev) => prev.filter((c) => c.id !== old.id));
-
-//         // if (isDraggingRef.current) return;
-
-//         setContainers((prev) => {
-//           if (eventType === "INSERT") {
-//             return [...prev, { id: newRecord.id, title: newRecord.category, items: [] }];
-//           }
-//           if (eventType === "DELETE") {
-//             return prev.filter((c) => c.id !== old.id);
-//           }
-//           if (eventType === "UPDATE") {
-//             return prev.map((c) =>
-//               c.id === newRecord.id ? { ...c, title: newRecord.category } : c
-//             );
-//           }
-//           return prev;
-//         });
-//       }
-//     )
-//     .subscribe();
-
-//   return () => {
-//     supabase.removeChannel(channel);
-//   };
-// }, []);  
-
-
-
-//   useEffect(() => {
-//   const initial = buildContainers(categories, todos);
-//   setContainers(initial);
-// }, []);
-
-
-
-useEffect(() => {
-  const supabase = createClient();
-
-  const channel = supabase
-    .channel("todos-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "todos" },
-      (payload) => {
-        const { eventType, new: newRecord, old } = payload;
-
-        if (isDraggingRef.current) return;
-
-        let updatedTodos = [...latestTodosRef.current];
-
-        if (eventType === "INSERT") {
-          updatedTodos.push(newRecord);
-        }
-
-        if (eventType === "UPDATE") {
-          updatedTodos = updatedTodos.map((t) =>
-            t.id === newRecord.id ? newRecord : t
+          setContainers(
+            buildContainers(latestCategoriesRef.current, updatedTodos),
           );
-        }
+        },
+      )
+      .subscribe();
 
-        if (eventType === "DELETE") {
-          updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
-        }
+    return () => {
+      supabase.removeChannel(todoChannel);
+    };
+  }, []);
 
-        // 🔥 update ref
-        latestTodosRef.current = updatedTodos;
 
-        // 🔥 rebuild UI
-        const newContainers = buildContainers(
-          latestCategoriesRef.current,
-          updatedTodos
-        );
-        setContainers(newContainers);
-      }
-    )
-    .subscribe();
+  useEffect(() => {
+  containersRef.current = containers;
+}, [containers]);
 
+  // for  Batch API Calls
+ useEffect(() => {
   return () => {
-    supabase.removeChannel(channel);
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+    }
+
+    // 🔥 FINAL SAFETY FLUSH
+    if (updateQueueRef.current.length > 0) {
+      flushBatch();
+    }
   };
 }, []);
-
-
-useEffect(() => {
-  const supabase = createClient();
-
-  const channel = supabase
-    .channel("categories-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "categories" },
-      (payload) => {
-        const { eventType, new: newRecord, old } = payload;
-
-        if (isDraggingRef.current) return;
-
-        let updatedCategories = [...latestCategoriesRef.current];
-
-        if (eventType === "INSERT") {
-          updatedCategories.push(newRecord);
-        }
-
-        if (eventType === "UPDATE") {
-          updatedCategories = updatedCategories.map((c) =>
-            c.id === newRecord.id ? newRecord : c
-          );
-        }
-
-        if (eventType === "DELETE") {
-          updatedCategories = updatedCategories.filter(
-            (c) => c.id !== old.id
-          );
-        }
-
-        // 🔥 update ref
-        latestCategoriesRef.current = updatedCategories;
-
-        // 🔥 rebuild UI
-        const newContainers = buildContainers(
-          updatedCategories,
-          latestTodosRef.current
-        );
-        setContainers(newContainers);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
-
-useEffect(() => {
-  latestTodosRef.current = todos;
-  latestCategoriesRef.current = categories;
-
-  const initial = buildContainers(categories, todos);
-  setContainers(initial);
-}, [todos, categories]);
-
 
   useEffect(() => {
     if (!accessToken) {
       router.push("/login");
     }
-  }, []);
+  }, [accessToken, router]);
 
   return (
     <div>
@@ -628,9 +664,9 @@ useEffect(() => {
               onChange={(e) => setCategory(e.target.value)}
               className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             >
-              {categoryState.map((cat, index) => (
+              {containers.map((cat, index) => (
                 <option className="text-gray-700" key={index} value={cat.id}>
-                  THIS {cat.category.toUpperCase()}
+                  THIS {cat.title.toUpperCase()}
                 </option>
               ))}
             </select>
@@ -682,10 +718,10 @@ useEffect(() => {
                   cat={cat}
                   todo={cat.items}
                   index={index}
-                  categories={categoryState}
+                  categories={containers}
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
-                  setShowTaskModal={setShowTaskModal}
+                  TaskModalOpen={TaskModalOpen}
                 />
               ))}
             </div>
@@ -709,7 +745,7 @@ useEffect(() => {
       {showModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setShowModal(false)}
+          onClick={handleCancelModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -720,8 +756,8 @@ useEffect(() => {
                 Create New Board
               </h2>
               <CircleX
-                onClick={() => setShowModal(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleAddCategory}>
@@ -744,7 +780,7 @@ useEffect(() => {
                 <Button
                   disabled={loading}
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer "
                 >
                   Cancel
@@ -759,7 +795,7 @@ useEffect(() => {
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsOpen(false)}
+          onClick={handleCancelModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -768,8 +804,8 @@ useEffect(() => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">Edit Task</h2>
               <CircleX
-                onClick={() => setIsOpen(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleUpdate}>
@@ -790,7 +826,7 @@ useEffect(() => {
                 </button>
                 <Button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer "
                 >
                   Cancel
@@ -804,7 +840,7 @@ useEffect(() => {
       {showTaskModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsOpen(false)}
+          onClick={handleCancelModal}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -813,8 +849,8 @@ useEffect(() => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">Add Task</h2>
               <CircleX
-                onClick={() => setShowTaskModal(false)}
-                className="w-5 h-5 cursor-pointer text-red-500 transition-colors"
+                onClick={handleCancelModal}
+                className="w-6 h-6 cursor-pointer text-red-500 transition-colors"
               />
             </div>
             <form onSubmit={handleAddTodo}>
@@ -824,28 +860,16 @@ useEffect(() => {
                   name="todo"
                   type="text"
                   placeholder="Enter your task..."
-                  value={todo}
-                  onChange={(e) => setTodo(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
+                  value={modalTodo}
+                  onChange={(e) => setModalTodo(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 
+                  transition-all text-gray-700 mb-4"
                 />
-
-                <select
-                  title="Select Category"
+                <input
+                  type="hidden"
                   name="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="h-12 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                >
-                  {categoryState.map((cat, index) => (
-                    <option
-                      className="text-gray-700  text-[13px]"
-                      key={index}
-                      value={cat.id}
-                    >
-                      THIS {cat.category.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
+                  value={modalCategory ?? ""}
+                />
               </div>
 
               <div className="flex gap-3">
@@ -858,7 +882,7 @@ useEffect(() => {
                 <Button
                   disabled={loading}
                   type="button"
-                  onClick={() => setShowTaskModal(false)}
+                  onClick={handleCancelModal}
                   className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer "
                 >
                   Cancel

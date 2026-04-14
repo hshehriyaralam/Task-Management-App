@@ -126,7 +126,7 @@ export async function updateCategory(id: number, data: { position?: number }) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-
 }
+
 
 

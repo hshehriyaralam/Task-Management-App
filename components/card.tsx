@@ -118,7 +118,6 @@ export default function Card({
             </div>
           </div>
         </div>
-      {/* </div> */}
     </div>
   );
 }
