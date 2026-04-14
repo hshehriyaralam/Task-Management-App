@@ -9,6 +9,7 @@ import {
   deleteTodo,
   updateTodo,
   updateCategory,
+  deleteCategory,
 } from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
 import { toast } from "sonner";
@@ -81,6 +82,19 @@ export default function TodoHome({
   const containersRef = useRef(containers);
 
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const latestContainersRef = useRef<Container[]>([]);
+
+
+  const updateContainers = (updater: (prev: Container[]) => Container[]) => {
+  setContainers(prev => {
+    const next = updater(prev);
+    latestContainersRef.current = next;
+    return next;
+  });
+};
+
+
+
   const categoryIds = useMemo(
     () => containers.map((c) => `cat-${c.id}`),
     [containers],
@@ -462,39 +476,87 @@ export default function TodoHome({
   );
 
   // Add Todo
-  const handleAddTodo = useCallback(async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    const formData = new FormData(e.currentTarget);
-    await addTodo(formData);
+  const handleAddTodo = async (e:any) => {
+  e.preventDefault();
+  const tempId = Date.now(); 
+  const formData = new FormData(e.currentTarget);
+  updateContainers(prev =>
+    prev.map((cat : any) =>
+      cat.id === Number(category)
+        ? { ...cat, items: [...cat.items, formData] }
+        : cat
+    )
+  );
     setTodo("");
     setCategory("");
     setShowTaskModal(false);
-    setLoading(false);
-    toast.success("Todo Successfully Added", { position: "top-center" });
-  }, []);
+  try {
+    await addTodo(formData);
+  } catch (err) {
+    updateContainers(prev =>
+      prev.map(cat => ({
+        ...cat,
+        items: cat.items.filter(t => t.id !== tempId),
+      }))
+    );
+  }finally{
+    setLoading(false)
+  }
+  toast.success("Todo Successfully Added", { position: "top-center" });
 
-  // Add  category
-  const handleAddCategory = useCallback(async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    const formData = new FormData(e.currentTarget);
+};
+
+const handleAddCategory = async (e: any) => {
+  e.preventDefault();
+  setLoading(true);
+  const formData = new FormData(e.currentTarget);
+  const name = formData.get("category") as string;
+  const tempId = Date.now();
+  setLoading(false)
+  setShowModal(false)
+  updateContainers((prev:any) => [
+    ...prev,
+    {
+      id: tempId,
+      title: name,
+      items: [],
+      position: prev.length
+    },
+  ]);
+   toast.success("New Card Successfully Added", {
+      position: "top-center"
+    });
+    setNewCategory("")
+  try {
     await addCategory(formData);
-    setLoading(false);
-    setShowModal(false);
-    setNewCategory("");
-    toast.success("New Card Successfully Added", { position: "top-center" });
-  }, []);
+  } catch (err) {
+    updateContainers(prev =>
+      prev.filter((c:any) => c.id !== tempId)
+    );
 
-  // Delete Todo
-  const handleDelete = useCallback(async (id: number) => {
-    try {
-      await deleteTodo(id);
-      toast.success("Todo Successfully Deleted", { position: "top-center" });
-    } catch (error) {
-      toast.error("Failed to delete todo", { position: "top-center" });
-    }
-  }, []);
+    toast.error("New Card Not Added", {
+      position: "top-center"
+    });
+
+  } 
+};
+
+  const handleDelete = async (id: number) => {
+  const old = latestContainersRef.current;
+  updateContainers(prev =>
+    prev.map(cat => ({
+      ...cat,
+      items: cat.items.filter(t => t.id !== id)
+    }))
+  );
+  try {
+    toast.success("Todo Successfully Deleted", { position: "top-center" });
+    await deleteTodo(id);
+  } catch (err) {
+    toast.error("Failed to delete todo", { position: "top-center" }); 
+    setContainers(old);
+  }
+};
 
   // show Edit Modal
   const handleEdit = useCallback((todo: any) => {
@@ -504,26 +566,60 @@ export default function TodoHome({
     setTodo("");
   }, []);
 
-  // Update Todo
-  const handleUpdate = useCallback(
-    async (e: any) => {
-      e.preventDefault();
-      try {
-        setLoading(true);
-        if (!editTodoId) return;
-        await updateTodo(editTodoId, {
-          task: editText,
-        });
-        setIsOpen(false);
-        toast.success("Todo Successfully Updated", { position: "top-center" });
-      } catch (error) {
-        alert("Failed to Update Todo");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [editTodoId, editText],
+  const handleDeleteCategory = async (catId: number) => {
+  if (categories.length === 1) {
+    toast.error("Last board cannot be deleted", {
+      position: "top-center"
+    });
+    return;
+  }
+  const previousState = containers;
+  updateContainers(prev =>
+    prev.filter((cat :any)=> cat.id !== catId)
   );
+  toast.success("Card Successfully Deleted", {
+      position: "top-center"
+    });
+
+  try {
+    await deleteCategory(catId);
+  } catch (err) {
+    setContainers(previousState);
+    toast.error("Delete failed, restored previous state", {
+      position: "top-center"
+    });
+  }
+};
+
+
+
+  const handleUpdate = async (e:any) => {
+  e.preventDefault();
+
+  const oldValue = latestContainersRef.current;
+
+  setLoading(true);
+  updateContainers(prev =>
+    prev.map(cat => ({
+      ...cat,
+      items: cat.items.map(t =>
+        t.id === editTodoId
+          ? { ...t, task: editText }
+          : t
+      )
+    }))
+  );
+
+  try {
+    await updateTodo(Number(editTodoId), { task: editText });
+    setIsOpen(false);
+    toast.success("Todo Successfully Updated", { position: "top-center" });
+  } catch (err) {
+    setContainers(oldValue)
+  }finally{
+    setLoading(false)
+  }
+};
 
   const getActiveItem = () => {
     for (const container of containers) {
@@ -555,7 +651,7 @@ export default function TodoHome({
         "postgres_changes",
         { event: "*", schema: "public", table: "todos" },
         (payload) => {
-          if (isDraggingRef.current) return;
+          // if (isDraggingRef.current) return;
 
           const { eventType, new: newRecord, old } = payload;
 
@@ -726,8 +822,7 @@ export default function TodoHome({
         >
           <SortableContext
             items={categoryIds}
-            strategy={horizontalListSortingStrategy}
-          >
+            strategy={horizontalListSortingStrategy}>
             <div className="flex gap-5 overflow-x-auto custom-scrollbar">
               {containers?.map((cat, index) => (
                 <Card
@@ -739,6 +834,7 @@ export default function TodoHome({
                   handleDelete={handleDelete}
                   handleEdit={handleEdit}
                   TaskModalOpen={TaskModalOpen}
+                  handleDeleteCategory={handleDeleteCategory}
                 />
               ))}
             </div>

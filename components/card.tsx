@@ -17,6 +17,7 @@ export default function Card({
   handleDelete,
   handleEdit,
   TaskModalOpen,
+  handleDeleteCategory,
 }: any) {
 
 
@@ -38,16 +39,7 @@ export default function Card({
   };
 
     const { setNodeRef: setDropRef } = useDroppable({ id: cat.id });
-  
 
-  const handleDeleteCategory = async () => {
-    if (categories.length === 1) {
-      toast.error("Last was not delete", { position: "top-center" });
-      return;
-    }
-    await deleteCategory(cat.id);
-    toast.success("Card Successfully Deleted", { position: "top-center" });
-  };
 
   return (
     <div  ref={setSortableRef}  style={cardStyle}>
@@ -109,7 +101,7 @@ export default function Card({
             <div className="p-3 border-t border-gray-100 bg-gray-50">
               {categories.length > 3 && index > 2 && (
                 <button
-                  onClick={handleDeleteCategory}
+                  onClick={() => handleDeleteCategory(cat.id)}
                   className="bg-red-500 w-full py-1.5 rounded-xl text-white font-semibold cursor-pointer"
                 >
                   Delete Card
