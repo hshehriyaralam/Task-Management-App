@@ -488,24 +488,37 @@ export default function TodoHome({
  
 
   // Add Todo
-  const handleAddTodo = async (e:any) => {
+const handleAddTodo = async (e: any) => {
   e.preventDefault();
-  setLoading(true)
-  const tempId = Date.now(); 
+  setLoading(true);
+
+  const tempId = Date.now();
   const formData = new FormData(e.currentTarget);
-  updateContainers(prev =>
-    prev.map((cat : any) =>
-      cat.id === Number(category)
-        ? { ...cat, items: [...cat.items, formData] }
+
+  const task = formData.get("todo");
+  const catId = Number(formData.get("category"));
+
+  const optimisticTodo = {
+    id: tempId,
+    task,
+    category_id: Number(catId),
+    position: Date.now(),
+  };
+  
+  setTodo("");
+  setCategory("");
+  try { 
+    await addTodo(formData);
+    setLoading(false);
+    updateContainers(prev =>
+    prev.map((cat: any) =>
+      cat.id === Number(catId)
+        ? { ...cat, items: [...cat.items, optimisticTodo] }
         : cat
     )
   );
-  setLoading(false)
-  setTodo("");
-  setCategory("");
-  try {
+    toast.success("Todo Successfully Added", { position: "top-center" });
     setShowTaskModal(false);
-    await addTodo(formData);
   } catch (err) {
     updateContainers(prev =>
       prev.map(cat => ({
@@ -513,9 +526,7 @@ export default function TodoHome({
         items: cat.items.filter(t => t.id !== tempId),
       }))
     );
-  }
-  toast.success("Todo Successfully Added", { position: "top-center" });
-
+  } 
 };
 
 const handleAddCategory = async (e: any) => {
