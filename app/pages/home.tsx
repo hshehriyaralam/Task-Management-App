@@ -488,6 +488,50 @@ export default function TodoHome({
  
 
   // Add Todo
+// const handleAddTodo = async (e: any) => {
+//   e.preventDefault();
+//   setLoading(true);
+
+//   const tempId = Date.now();
+//   const formData = new FormData(e.currentTarget);
+
+//   const task = formData.get("todo");
+//   const catId = Number(formData.get("category"));
+
+//   const optimisticTodo = {
+//     id: tempId,
+//     task,
+//     category_id: Number(catId),
+//     position: Date.now(),
+//   };
+
+//       updateContainers(prev =>
+//       prev.map((cat: any) =>
+//         cat.id === Number(catId)
+//     ? { ...cat, items: [...cat.items, optimisticTodo] }
+//     : cat
+//   )
+// );
+  
+//   setTodo("");
+//   setCategory("");
+//   setModalTodo("")
+//   try { 
+//     await addTodo(formData);
+//     setLoading(false);
+//     toast.success("Todo Successfully Added", { position: "top-center" });
+//     setShowTaskModal(false);
+//   } catch (err) {
+//     updateContainers(prev =>
+//       prev.map(cat => ({
+//         ...cat,
+//         items: cat.items.filter(t => t.id !== tempId),
+//       }))
+//     );
+//   } 
+// };
+
+//new Todo
 const handleAddTodo = async (e: any) => {
   e.preventDefault();
   setLoading(true);
@@ -501,32 +545,59 @@ const handleAddTodo = async (e: any) => {
   const optimisticTodo = {
     id: tempId,
     task,
-    category_id: Number(catId),
+    category_id: catId,
     position: Date.now(),
+    is_complete: false,
   };
-  
-  setTodo("");
-  setCategory("");
-  try { 
-    await addTodo(formData);
-    setLoading(false);
-    updateContainers(prev =>
-    prev.map((cat: any) =>
-      cat.id === Number(catId)
+
+  // ✅ Optimistic UI
+  updateContainers(prev =>
+    prev.map((cat:any) =>
+      cat.id === catId
         ? { ...cat, items: [...cat.items, optimisticTodo] }
         : cat
     )
   );
-    toast.success("Todo Successfully Added", { position: "top-center" });
+
+  // reset inputs
+  setTodo("");
+  setCategory("");
+  setModalTodo("");
+
+  try {
+    // 🔥 get real DB todo
+    const newTodo = await addTodo(formData);
+
+    // 🔥 replace tempId with real DB id
+    updateContainers(prev =>
+      prev.map(cat => ({
+        ...cat,
+        items: cat.items.map(item =>
+          item.id === tempId ? newTodo : item
+        ),
+      }))
+    );
+
+    toast.success("Todo Successfully Added", {
+      position: "top-center",
+    });
+
     setShowTaskModal(false);
   } catch (err) {
+    // ❌ rollback
     updateContainers(prev =>
       prev.map(cat => ({
         ...cat,
         items: cat.items.filter(t => t.id !== tempId),
       }))
     );
-  } 
+
+    toast.error("Failed to add todo", {
+      position: "top-center",
+    });
+  } finally {
+    setLoading(false);
+  }
 };
 
 const handleAddCategory = async (e: any) => {

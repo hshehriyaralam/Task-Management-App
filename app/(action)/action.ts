@@ -6,34 +6,77 @@ import { createClient } from "../lib/supabase/server"
 
 
 // Add Todo
-export async function addTodo(formData: any) {
-  const supabase = await createClient()
-  const userId = await getUserId()
+// export async function addTodo(formData: any) {
+//   const supabase = await createClient()
+//   const userId = await getUserId()
 
-  const todo = formData.get('todo')
-  const category_id = Number(formData.get('category')) 
+//   const todo = formData.get('todo')
+//   const category_id = Number(formData.get('category')) 
 
 
-  const {data : ExistingData, error : fetchError} = await supabase.from("todos").select("id").eq('category_id',category_id)
+//   const {data : ExistingData, error : fetchError} = await supabase.from("todos").select("id").eq('category_id',category_id)
+
+//   if (fetchError) {
+//     console.error('Error fetching todos:', fetchError)
+//     return
+//   }
+
+//   const position  = ExistingData?.length || 0
+
+//   const { error } = await supabase.from('todos').insert({
+//     task: todo,
+//     is_complete: false,
+//     category_id: category_id,
+//     position : position,
+//     user_id : userId
+//   })
+
+//   if (error) {
+//     console.error('Error adding todo:', error)
+//   }
+// }
+
+
+//new Add Todo
+export async function addTodo(formData: FormData) {
+  const supabase = await createClient();
+  const userId = await getUserId();
+
+  const todo = formData.get("todo");
+  const category_id = Number(formData.get("category"));
+
+  // get position
+  const { data: existingData, error: fetchError } = await supabase
+    .from("todos")
+    .select("id")
+    .eq("category_id", category_id);
 
   if (fetchError) {
-    console.error('Error fetching todos:', fetchError)
-    return
+    console.error("Error fetching todos:", fetchError);
+    throw fetchError;
   }
 
-  const position  = ExistingData?.length || 0
+  const position = existingData?.length || 0;
 
-  const { error } = await supabase.from('todos').insert({
-    task: todo,
-    is_complete: false,
-    category_id: category_id,
-    position : position,
-    user_id : userId
-  })
+  // 🔥 return inserted row
+  const { data, error } = await supabase
+    .from("todos")
+    .insert({
+      task: todo,
+      is_complete: false,
+      category_id,
+      position,
+      user_id: userId,
+    })
+    .select()
+    .single();
 
   if (error) {
-    console.error('Error adding todo:', error)
+    console.error("Error adding todo:", error);
+    throw error;
   }
+
+  return data; // ✅ VERY IMPORTANT
 }
 
 
@@ -57,7 +100,6 @@ export async function  updateTodo(id : number, updateTodo :any ){
     return { success: false, error };
   }
   return { success: true, data };
-
 }
 
 
@@ -116,7 +158,6 @@ export async function deleteCategory(id:number){
 
 
 // update category 
-
 export async function updateCategory(id: number, data: { position?: number }) {
   const supabase = await createClient();
   
