@@ -1,0 +1,16 @@
+import { createClient } from "@/app/lib/supabase/client";
+
+export async function updateTodosBulk(items: any[]) {
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc("reorder_todos", {
+    items,
+  });
+
+  if (error) {
+    console.error("Bulk update failed", error);
+    throw error;
+  }
+}
+
+

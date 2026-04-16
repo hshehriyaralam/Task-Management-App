@@ -3,33 +3,23 @@ import completeTodo from "@/app/(action)/action";
 import { useSortable } from "@dnd-kit/sortable";
 import {CSS} from '@dnd-kit/utilities'
 import { Trash2, Pencil } from "lucide-react";
-import { useState } from "react";
 
-export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
+export default function TodoItem({ todo, handleDelete, handleEdit,handleCompleteTodo }: any) {
     const {
     setNodeRef,
     attributes,
     listeners,
     transform,
     transition,
-    isDragging
+    isDragging,
   } = useSortable({id : todo.id})
 
    const style = {transform   : CSS.Transform.toString(transform), transition,  }
-  const handleCompleteTodo = async (id: number) => {
-    try {
-      if (!id) return;
-      await completeTodo(id, {
-        is_complete: !todo.is_complete,
-      });
-    } catch (error) {
-      alert("Todo not complete ");
-    }
-  };
+
 
 
   return (
-    <div  className="group relative "  ref={setNodeRef} style={style} {...attributes} {...listeners} >
+    <section  className="group relative "  ref={setNodeRef} style={style} {...attributes} {...listeners} >
       <div
         className={`
           bg-white rounded-lg  border  
@@ -77,6 +67,6 @@ export default function TodoItem({ todo, handleDelete, handleEdit }: any) {
         </div> 
 
       </div>
-    </div>
+    </section>
   );
 }

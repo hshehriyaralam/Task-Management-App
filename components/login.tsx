@@ -1,19 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter } from 'next/navigation'
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
+import { getUserId } from "@/lib/getUser"
 
 
-// type EmalPasswordProp = {
-//   user: User | null;
-// };
 
-export default function LoginForm() {
+export default function LoginForm({accessToken} : any) {
     const router = useRouter()
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,45 +18,116 @@ export default function LoginForm() {
 
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  // const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
 
-    if (loading) return;
-    setLoading(true);
+  //   if (loading) return;
+  //   setLoading(true);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  //   try {
+  //     const { error : login } = await supabase.auth.signInWithPassword({
+  //       email,
+  //       password,
+  //     })
       
-      if(error?.message === 'Email not confirmed'){
-      toast.error("Please confirm email first.", {position : "top-center"});
-      return
-      }else
+  //     if(login?.message === 'Email not confirmed'){
+  //     toast.error("Please confirm email first.", {position : "top-center"});
+  //     return
+  //     }else
         
-       if(error?.message === 'Invalid login credentials'){
-      toast.error("Email Or Password not valid", {position : "top-center"});
-      // console.log("error", error)
-      // setEmail("")
-      // setPassword("")
-      return
-      }else{
-      router.push("/")
-      setEmail("");
-      setPassword("");
-      toast.success("Login Successfully", { position: "top-center" });
-      }
+  //      if(login?.message === 'Invalid login credentials'){
+  //     toast.error("Email Or Password not valid", {position : "top-center"});
+  //     // console.log("error", error)
+  //     // setEmail("")
+  //     // setPassword("")
+  //     return
+  //     }else{
+  //     router.push("/")
+  //     setEmail("");
+  //     setPassword("");
+  //     toast.success("Login Successfully", { position: "top-center" });
+  //     }
      
-    } catch (error) {
-      toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
+  //   } catch (error) {
+  //     toast.error("Something went wrong");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  if (loading) return;
+  setLoading(true);
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error?.message === 'Email not confirmed') {
+      toast.error("Please confirm email first.", { position: "top-center" });
+      return;
     }
-  };
+
+    if (error?.message === 'Invalid login credentials') {
+      toast.error("Email Or Password not valid", { position: "top-center" });
+      return;
+    }
+
+    // const userId = data?.user?.id;
+    // if (!userId) return;
+
+    // const { data: existingCategories } = await supabase
+    //   .from("categories")
+    //   .select("id")
+    //   .eq("user_id", userId);
+
+
+    // if (!existingCategories || existingCategories.length === 0) {
+    //   await supabase.from("categories").insert([
+    //       {
+    //         category: "Today",
+    //         user_id: userId!,
+    //         position: 0,
+    //       },
+    //       {
+    //         category: "Month",
+    //         user_id: userId!,
+    //         position: 1,
+    //       },
+    //       {
+    //         category: "Year",
+    //         user_id: userId!,
+    //         position: 2,
+    //       },
+    //     ] as any); 
+    // }
+
+    router.push("/");
+    setEmail("");
+    setPassword("");
+
+    toast.success("Login Successfully", { position: "top-center" });
+
+  } catch (error) {
+    toast.error("Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
+      // useEffect (() => {
+      //   if (accessToken) {
+      //     router.push("/");
+      //   }
+      // }, [accessToken, router]);
+    
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center px-4 py-6">
+    <section className="flex min-h-svh w-full items-center justify-center px-4 py-6">
   <div className="w-full max-w-md ">
     <form
       onSubmit={handleLogin}
@@ -109,6 +177,6 @@ export default function LoginForm() {
       </p>
     </form>
   </div>
-</div>
+</section>
   );
 }

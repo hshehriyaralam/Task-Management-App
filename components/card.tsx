@@ -12,12 +12,11 @@ import { CSS } from "@dnd-kit/utilities";
 export default function Card({
   todo,
   cat,
-  index,
-  categories,
   handleDelete,
   handleEdit,
   TaskModalOpen,
   handleDeleteCategory,
+  handleCompleteTodo
 }: any) {
 
 
@@ -42,7 +41,7 @@ export default function Card({
 
 
   return (
-    <div  ref={setSortableRef}  style={cardStyle}>
+    <section  ref={setSortableRef}  style={cardStyle}>
         <div className={`w-[350px]  b rounded-xl shadow-sm border  ${isCardDragging ? 'border-2 border-dotted  border-gray-300  opacity-70 ' : '' }  overflow-hidden hover:shadow-md transition-shadow`}>
           {/* Card Header */}
           <div 
@@ -79,6 +78,7 @@ export default function Card({
                         todo={t}
                         handleDelete={handleDelete}
                         handleEdit={handleEdit}
+                        handleCompleteTodo={handleCompleteTodo}
                       />
                     </div>
                   ))}
@@ -99,17 +99,16 @@ export default function Card({
 
             {/* Card Footer */}
             <div className="p-3 border-t border-gray-100 bg-gray-50">
-              {categories.length > 3 && index > 2 && (
+              
                 <button
                   onClick={() => handleDeleteCategory(cat.id)}
                   className="bg-red-500 w-full py-1.5 rounded-xl text-white font-semibold cursor-pointer"
                 >
                   Delete Card
                 </button>
-              )}
             </div>
           </div>
         </div>
-    </div>
+    </section>
   );
 }

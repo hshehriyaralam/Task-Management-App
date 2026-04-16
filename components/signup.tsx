@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter } from 'next/navigation'
 import { Spinner } from "./ui/spinner";
 import { Button } from "./ui/button";
 
-export default function SignUpForm() {
+export default function SignUpForm({accessToken}:any) {
     const router = useRouter()
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +21,7 @@ export default function SignUpForm() {
     if (loading) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
          options: {
@@ -33,6 +33,36 @@ export default function SignUpForm() {
       if(error){
         toast.error("Something went Wrong", {position : 'top-center'})
       }
+
+      // Card Validation
+      const userId = data?.user?.id;
+    if (!userId) return;
+
+    const { data: existingCategories } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("user_id", userId);
+
+
+    if (!existingCategories || existingCategories.length === 0) {
+      await supabase.from("categories").insert([
+          {
+            category: "Today",
+            user_id: userId!,
+            position: 0,
+          },
+          {
+            category: "Month",
+            user_id: userId!,
+            position: 1,
+          },
+          {
+            category: "Year",
+            user_id: userId!,
+            position: 2,
+          },
+        ] as any); 
+    }
       setName("")
       setEmail("");
       setPassword("");
@@ -46,8 +76,16 @@ export default function SignUpForm() {
     }
   };
 
+
+    useEffect (() => {
+      if (accessToken) {
+        router.push("/");
+      }
+    }, [accessToken, router]);
+  
+
   return (
-    <div className="flex min-h-svh w-full items-center justify-center px-4 py-6">
+    <section className="flex min-h-svh w-full items-center justify-center px-4 py-6">
   <div className="w-full max-w-md">
     <form
       onSubmit={handleSignUp}
@@ -109,6 +147,6 @@ export default function SignUpForm() {
       </p>
     </form>
   </div>
-</div>
+</section>
   );
 }

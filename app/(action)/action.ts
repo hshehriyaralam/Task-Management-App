@@ -4,39 +4,6 @@ import { createClient } from "../lib/supabase/server"
 
 
 
-
-// Add Todo
-// export async function addTodo(formData: any) {
-//   const supabase = await createClient()
-//   const userId = await getUserId()
-
-//   const todo = formData.get('todo')
-//   const category_id = Number(formData.get('category')) 
-
-
-//   const {data : ExistingData, error : fetchError} = await supabase.from("todos").select("id").eq('category_id',category_id)
-
-//   if (fetchError) {
-//     console.error('Error fetching todos:', fetchError)
-//     return
-//   }
-
-//   const position  = ExistingData?.length || 0
-
-//   const { error } = await supabase.from('todos').insert({
-//     task: todo,
-//     is_complete: false,
-//     category_id: category_id,
-//     position : position,
-//     user_id : userId
-//   })
-
-//   if (error) {
-//     console.error('Error adding todo:', error)
-//   }
-// }
-
-
 //new Add Todo
 export async function addTodo(formData: FormData) {
   const supabase = await createClient();
@@ -44,8 +11,6 @@ export async function addTodo(formData: FormData) {
 
   const todo = formData.get("todo");
   const category_id = Number(formData.get("category"));
-
-  // get position
   const { data: existingData, error: fetchError } = await supabase
     .from("todos")
     .select("id")
@@ -57,8 +22,6 @@ export async function addTodo(formData: FormData) {
   }
 
   const position = existingData?.length || 0;
-
-  // 🔥 return inserted row
   const { data, error } = await supabase
     .from("todos")
     .insert({
@@ -76,7 +39,7 @@ export async function addTodo(formData: FormData) {
     throw error;
   }
 
-  return data; // ✅ VERY IMPORTANT
+  return data; 
 }
 
 
@@ -124,19 +87,15 @@ export default async function completeTodo(id:number , compeleteTodo : any ){
 export  async function addCategory(formData : any){
     const supabase = await createClient()
     const category = formData.get('category')
-    const userId = await  getUserId()
+    // const userId = await  getUserId()
     const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
 
-      if (fetchError) {
+    if (fetchError) {
     console.error('Error fetching categories:', fetchError)
-    return
-  }
+    return }
 
   const position = ExistingData?.length || 0
-
-
  const { error } = await supabase.from('categories').insert({
-    user_id : userId,
     category : category,
     position : position
   });
@@ -160,7 +119,6 @@ export async function deleteCategory(id:number){
 // update category 
 export async function updateCategory(id: number, data: { position?: number }) {
   const supabase = await createClient();
-  
   const { error } = await supabase
     .from("categories")
     .update(data)

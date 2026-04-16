@@ -6,11 +6,14 @@ import { useRouter } from 'next/navigation'
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import { LogOut } from "lucide-react";
+import { useAppContext } from "@/context/AppContext";
 
 
 
 
-export default function Header({Name}:any) {
+export default function Header() {
+      const { userName } = useAppContext(); 
+    
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const supabase = getSupabaseBrowserClient();
@@ -34,7 +37,7 @@ export default function Header({Name}:any) {
         <header  className="z-50">
         <div  className="flex items-center justify-between   mb-2"  >
             <div >
-            <h1  className="text-4xl font-bold text-gray-800">Hi {Name}</h1>
+            <h1  className="text-4xl font-bold text-gray-800">Hi {userName}</h1>
             </div>
 
         <div  className="flex items-center gap-2">

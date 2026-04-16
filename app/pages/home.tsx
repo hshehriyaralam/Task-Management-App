@@ -1,21 +1,14 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { CircleX, LayoutGrid, Plus } from "lucide-react";
+import { AddTodo, CompleteTodo, DeleteTodo,UpdateTodo } from "@/hooks/todo";
+import { AddNewCategory, DeleteCategory } from "@/hooks/category";
 import Card from "@/components/card";
-import type { TodosCategoriesTypes, Container } from "@/type/todo";
-import {
-  addCategory,
-  addTodo,
-  deleteTodo,
-  updateTodo,
-  updateCategory,
-  deleteCategory,
-} from "@/app/(action)/action";
+import type {  Container } from "@/type/todo";
+
+import { updateCategory} from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+
 
 // for Dnd kit
 import {
@@ -37,53 +30,43 @@ import {
 } from "@dnd-kit/sortable";
 import TodoOverlay from "@/components/todoOverlay";
 import CardOverlay from "@/components/cardOverlay";
-
-export async function updateTodosBulk(items: any[]) {
-  const supabase = createClient();
-
-  const { error } = await supabase.rpc("reorder_todos", {
-    items,
-  });
-
-  if (error) {
-    console.error("Bulk update failed", error);
-    throw error;
-  }
-}
+import { updateTodosBulk } from "@/hooks/bulkTodo";
+import { BatchUpdate,flushBatch } from "@/hooks/helpers";
+import Todoform from "@/components/form";
+import AddCategoryModal from "@/components/addCategoryModal";
+import EditTodoPopUp from "@/components/editTodoPopUp";
+import AddTodoModal from "@/components/addTodoModal";
+import { useAppContext } from "@/context/AppContext";
 
 
 
-export default function TodoHome({
-  todos,
-  categories,
-  accessToken,
-}: TodosCategoriesTypes) {
+
+export default function TodoHome() {
+  const { todos, categories, accessToken } = useAppContext(); 
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
   const [modalTodo, setModalTodo] = useState("");
   const [modalCategory, setModalCategory] = useState<number | null>(null);
   const router = useRouter();
-
-  // for edit todo States
   const [isOpen, setIsOpen] = useState(false);
   const [editTodoId, setEditTodoId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
-
-  // for add more categories
   const [newCategory, setNewCategory] = useState("");
-
-  // show add Category modal
   const [showModal, setShowModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const [containers, setContainers] = useState<Container[]>([]);
   const isDraggingRef = useRef(false);
   const containersRef = useRef(containers);
   const isSyncingRef = useRef(false);
-
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const latestContainersRef = useRef<Container[]>([]);
+  const optimisticRef = useRef<Container[] | null>(null);
+  const updateQueueRef = useRef<any[]>([]);
+  const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const latestTodosRef = useRef(todos);
+  const latestCategoriesRef = useRef(categories);
+
 
 
   const updateContainers = (updater: (prev: Container[]) => Container[]) => {
@@ -101,45 +84,11 @@ export default function TodoHome({
     [containers],
   );
 
-  // for Optimistic UI
-  const optimisticRef = useRef<Container[] | null>(null);
-
-  // for Bulk API call
-  const updateQueueRef = useRef<any[]>([]);
-  const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
+ 
 
   // for Bulk API call
   const scheduleBatchUpdate = useCallback((items: any[]) => {
-    updateQueueRef.current = [...updateQueueRef.current, ...items];
-
-    // deduplicate by id (VERY IMPORTANT)
-    const map = new Map();
-
-    for (const item of updateQueueRef.current) {
-      map.set(item.id, item);
-    }
-
-    updateQueueRef.current = Array.from(map.values());
-
-    if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
-    }
-
-    batchTimerRef.current = setTimeout(async () => {
-      const payload = [...updateQueueRef.current];
-      try {
-
-        if (payload.length === 0) return;
-
-        updateQueueRef.current = [];
-
-        await updateTodosBulk(payload);
-        
-      } catch (err) {
-        console.error("Batch update failed", err);
-        updateQueueRef.current.push(...payload);
-      }
-    }, 400);
+    BatchUpdate({items,updateQueueRef,batchTimerRef})
   }, []);
 
   const buildContainers = useCallback((categories: any[], todos: any[]) => {
@@ -153,9 +102,6 @@ export default function TodoHome({
           .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
       }));
   }, []);
-
-  const latestTodosRef = useRef(todos);
-  const latestCategoriesRef = useRef(categories);
 
   
 
@@ -176,26 +122,7 @@ export default function TodoHome({
     return String(id).startsWith("cat-");
   }, []);
 
-  const flushBatch = async () => {
-  if (batchTimerRef.current) {
-    clearTimeout(batchTimerRef.current);
-    batchTimerRef.current = null;
-  }
 
-  const payload = [...updateQueueRef.current];
-  if (!payload.length) return;
-  updateQueueRef.current = [];
-
-  try {
-    await updateTodosBulk(payload);
-    setTimeout(() => {
-      isSyncingRef.current = false;
-    }, 500);
-
-  } catch (err) {
-    console.error(err);
-  }
-};
 
 
   const TaskModalOpen = useCallback((categoryId: number) => {
@@ -225,19 +152,13 @@ export default function TodoHome({
     async (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-
       const activeRaw = String(active.id).replace("cat-", "");
       const overRaw = String(over.id).replace("cat-", "");
-
       if (!String(over.id).startsWith("cat-")) return;
-
       const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
       const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
-
       if (oldIndex === -1 || newIndex === -1) return;
-
       const reordered = arrayMove(containers, oldIndex, newIndex);
-
       setContainers(reordered);
       try {
         await Promise.all(
@@ -265,6 +186,9 @@ export default function TodoHome({
     isDraggingRef.current = true;
     isSyncingRef.current = true;
   }, []);
+
+
+  
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event;
@@ -480,177 +404,49 @@ export default function TodoHome({
 
       setActiveId(null);
       optimisticRef.current = null;
-      await flushBatch();
+      await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
     },
     [containers],
   );
 
  
 
-  // Add Todo
-// const handleAddTodo = async (e: any) => {
-//   e.preventDefault();
-//   setLoading(true);
-
-//   const tempId = Date.now();
-//   const formData = new FormData(e.currentTarget);
-
-//   const task = formData.get("todo");
-//   const catId = Number(formData.get("category"));
-
-//   const optimisticTodo = {
-//     id: tempId,
-//     task,
-//     category_id: Number(catId),
-//     position: Date.now(),
-//   };
-
-//       updateContainers(prev =>
-//       prev.map((cat: any) =>
-//         cat.id === Number(catId)
-//     ? { ...cat, items: [...cat.items, optimisticTodo] }
-//     : cat
-//   )
-// );
-  
-//   setTodo("");
-//   setCategory("");
-//   setModalTodo("")
-//   try { 
-//     await addTodo(formData);
-//     setLoading(false);
-//     toast.success("Todo Successfully Added", { position: "top-center" });
-//     setShowTaskModal(false);
-//   } catch (err) {
-//     updateContainers(prev =>
-//       prev.map(cat => ({
-//         ...cat,
-//         items: cat.items.filter(t => t.id !== tempId),
-//       }))
-//     );
-//   } 
-// };
-
-//new Todo
-const handleAddTodo = async (e: any) => {
-  e.preventDefault();
-  setLoading(true);
-
-  const tempId = Date.now();
-  const formData = new FormData(e.currentTarget);
-
-  const task = formData.get("todo");
-  const catId = Number(formData.get("category"));
-
-  const optimisticTodo = {
-    id: tempId,
-    task,
-    category_id: catId,
-    position: Date.now(),
-    is_complete: false,
-  };
-
-  // ✅ Optimistic UI
-  updateContainers(prev =>
-    prev.map((cat:any) =>
-      cat.id === catId
-        ? { ...cat, items: [...cat.items, optimisticTodo] }
-        : cat
-    )
-  );
-
+  // Todo CRUD
+const handleAddTodo = useCallback(async (e: any) => {
+  await AddTodo({e,setLoading,updateContainers,setShowTaskModal})
   // reset inputs
   setTodo("");
   setCategory("");
   setModalTodo("");
 
-  try {
-    // 🔥 get real DB todo
-    const newTodo = await addTodo(formData);
+},[])
 
-    // 🔥 replace tempId with real DB id
-    updateContainers(prev =>
-      prev.map(cat => ({
-        ...cat,
-        items: cat.items.map(item =>
-          item.id === tempId ? newTodo : item
-        ),
-      }))
-    );
+  const handleUpdate = useCallback(async (e:any) => {
+  await UpdateTodo({e,latestContainersRef,setLoading,updateContainers,editTodoId,editText,setIsOpen,setContainers})
+},[editTodoId, editText])
 
-    toast.success("Todo Successfully Added", {
-      position: "top-center",
-    });
 
-    setShowTaskModal(false);
-  } catch (err) {
-    // ❌ rollback
-    updateContainers(prev =>
-      prev.map(cat => ({
-        ...cat,
-        items: cat.items.filter(t => t.id !== tempId),
-      }))
-    );
+  const handleDelete = useCallback(async (id: number) => {
+    await DeleteTodo({id, updateContainers,latestContainersRef,setContainers})
+},[])
 
-    toast.error("Failed to add todo", {
-      position: "top-center",
-    });
-  } finally {
-    setLoading(false);
-  }
+const handleCompleteTodo = async (id: number) => {
+  await CompleteTodo({id,latestContainersRef,updateContainers,setContainers})
 };
 
-const handleAddCategory = async (e: any) => {
-  e.preventDefault();
-  setLoading(true);
-  const formData = new FormData(e.currentTarget);
-  const name = formData.get("category") as string;
-  const tempId = Date.now();
-  setLoading(false)
-  setShowModal(false)
-  updateContainers((prev:any) => [
-    ...prev,
-    {
-      id: tempId,
-      title: name,
-      items: [],
-      position: prev.length
-    },
-  ]);
-   toast.success("New Card Successfully Added", {
-      position: "top-center"
-    });
+
+
+  
+// Category CRUD 
+  const handleAddCategory = useCallback(async (e:any) => {
+    await AddNewCategory({e,setLoading,setShowModal,updateContainers})
     setNewCategory("")
-  try {
-    await addCategory(formData);
-  } catch (err) {
-    updateContainers(prev =>
-      prev.filter((c:any) => c.id !== tempId)
-    );
+  },[])
 
-    toast.error("New Card Not Added", {
-      position: "top-center"
-    });
+   const handleDeleteCategory =  useCallback(async (catId: number) => {
+    await DeleteCategory({catId,categories,containers,updateContainers,setContainers})
+},[])
 
-  } 
-};
-
-  const handleDelete = async (id: number) => {
-  const old = latestContainersRef.current;
-  updateContainers(prev =>
-    prev.map(cat => ({
-      ...cat,
-      items: cat.items.filter(t => t.id !== id)
-    }))
-  );
-  try {
-    toast.success("Todo Successfully Deleted", { position: "top-center" });
-    await deleteTodo(id);
-  } catch (err) {
-    toast.error("Failed to delete todo", { position: "top-center" }); 
-    setContainers(old);
-  }
-};
 
   // show Edit Modal
   const handleEdit = useCallback((todo: any) => {
@@ -660,60 +456,6 @@ const handleAddCategory = async (e: any) => {
     setTodo("");
   }, []);
 
-  const handleDeleteCategory = async (catId: number) => {
-  if (categories.length === 1) {
-    toast.error("Last board cannot be deleted", {
-      position: "top-center"
-    });
-    return;
-  }
-  const previousState = containers;
-  updateContainers(prev =>
-    prev.filter((cat :any)=> cat.id !== catId)
-  );
-  toast.success("Card Successfully Deleted", {
-      position: "top-center"
-    });
-
-  try {
-    await deleteCategory(catId);
-  } catch (err) {
-    setContainers(previousState);
-    toast.error("Delete failed, restored previous state", {
-      position: "top-center"
-    });
-  }
-};
-
-
-
-  const handleUpdate = async (e:any) => {
-  e.preventDefault();
-
-  const oldValue = latestContainersRef.current;
-
-  setLoading(true);
-  updateContainers(prev =>
-    prev.map(cat => ({
-      ...cat,
-      items: cat.items.map(t =>
-        t.id === editTodoId
-          ? { ...t, task: editText }
-          : t
-      )
-    }))
-  );
-
-  try {
-    await updateTodo(Number(editTodoId), { task: editText });
-    setIsOpen(false);
-    toast.success("Todo Successfully Updated", { position: "top-center" });
-  } catch (err) {
-    setContainers(oldValue)
-  }finally{
-    setLoading(false)
-  }
-};
 
   const getActiveItem = () => {
     for (const container of containers) {
@@ -728,6 +470,9 @@ const handleAddCategory = async (e: any) => {
     const rawId = String(activeId).replace("cat-", "");
     return containers.find((c) => String(c.id) === rawId) || null;
   };
+
+
+
 
   useEffect(() => {
     latestTodosRef.current = todos;
@@ -831,23 +576,19 @@ const handleAddCategory = async (e: any) => {
   };
 }, []);
 
-
-
-
   useEffect(() => {
   containersRef.current = containers;
 }, [containers]);
 
-  // for  Batch API Calls
+
  useEffect(() => {
   return () => {
     if (batchTimerRef.current) {
       clearTimeout(batchTimerRef.current);
     }
-
-    // 🔥 FINAL SAFETY FLUSH
     if (updateQueueRef.current.length > 0) {
-      flushBatch();
+      flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
+      
     }
   };
 }, []);
@@ -858,62 +599,45 @@ const handleAddCategory = async (e: any) => {
     }
   }, [accessToken, router]);
 
+useEffect(() => {
+  const fetchData = async () => {
+    const supabase = createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data: todos } = await supabase
+      .from("todos")
+      .select("*")
+      .eq("user_id", user.id);
+
+    const { data: categories } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("user_id", user.id);
+
+    setContainers(buildContainers(categories || [], todos || []));
+  };
+
+  fetchData();
+}, []);
+
+
+
   return (
-    <div>
+    <section>
       <div>
-        <form onSubmit={handleAddTodo} className="mb-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex  flex-col md:flex-row gap-4">
-            <input
-              required
-              name="todo"
-              type="text"
-              placeholder="Enter your task..."
-              value={todo}
-              onChange={(e) => setTodo(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2  focus:ring-blue-100 transition-all text-gray-700 placeholder-gray-400 "
-            />
-
-            <select
-              title="Select Category"
-              name="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium cursor-pointer outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-            >
-              {containers.map((cat, index) => (
-                <option className="text-gray-700" key={index} value={cat.id}>
-                  THIS {cat.title.toUpperCase()}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="lg:w-30  lg:py-1 py-2 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/70 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer "
-            >
-              {loading ? (
-                <Spinner className="size-6" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4  text-gray-200" /> Add Task
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowModal(true);
-                setTodo("");
-              }}
-              className="px-3 lg:py-1 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 justify-center  cursor-pointer  hover:bg-primary/10 "
-            >
-              <LayoutGrid className="w-4 h-4" />
-              New Board
-            </button>
-          </div>
-        </form>
+        <Todoform  
+        handleAddTodo={handleAddTodo}
+        containers={containers}
+        loading={loading}
+        setShowModal={setShowModal}
+        todo={todo}
+        setTodo={setTodo}
+        category={category}
+        setCategory={setCategory}
+        />
 
         {/* cards */}
         <DndContext
@@ -938,6 +662,7 @@ const handleAddCategory = async (e: any) => {
                   handleEdit={handleEdit}
                   TaskModalOpen={TaskModalOpen}
                   handleDeleteCategory={handleDeleteCategory}
+                  handleCompleteTodo={handleCompleteTodo}
                 />
               ))}
             </div>
@@ -957,157 +682,35 @@ const handleAddCategory = async (e: any) => {
       </div>
 
       {/* Modals */}
-      {/* show Add Category Modal  */}
-      {showModal && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={handleCancelModal}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">
-                Create New Board
-              </h2>
-              <CircleX
-                onClick={handleCancelModal}
-                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
-              />
-            </div>
-            <form onSubmit={handleAddCategory}>
-              <input
-                required
-                name="category"
-                type="text"
-                placeholder="Enter board name..."
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
-              />
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 transition-all duration-200 text-md  cursor-pointer "
-                >
-                  {loading ? <Spinner className="size-6" /> : "Create Board"}
-                </Button>
-                <Button
-                  disabled={loading}
-                  type="button"
-                  onClick={handleCancelModal}
-                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200 cursor-pointer "
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {showModal && ( <AddCategoryModal  
+      handleCancelModal={handleCancelModal}
+      handleAddCategory={handleAddCategory}
+      newCategory={newCategory}
+      setNewCategory={setNewCategory}
+      loading={loading}
+      />)}
 
       {/* Show Edit Todo PopUp */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={handleCancelModal}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Edit Task</h2>
-              <CircleX
-                onClick={handleCancelModal}
-                className="w-6 h-6  cursor-pointer text-red-500 transition-colors"
-              />
-            </div>
-            <form onSubmit={handleUpdate}>
-              <input
-                type="text"
-                placeholder="Update your task..."
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-gray-700 mb-4"
-              />
-              <div className="flex gap-3">
-                <button
-                  disabled={loading}
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md  flex items-center justify-center    transition-all duration-200  cursor-pointer"
-                >
-                  {loading ? <Spinner className="size-6" /> : "Update Task"}
-                </button>
-                <Button
-                  type="button"
-                  onClick={handleCancelModal}
-                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white  hover:bg-gray-50 transition-all duration-200  cursor-pointer "
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditTodoPopUp 
+        handleCancelModal={handleCancelModal}
+        handleUpdate={handleUpdate}
+        editText={editText}
+        setEditText={setEditText}
+        loading={loading}
+        />
       )}
 
       {showTaskModal && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={handleCancelModal}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Add Task</h2>
-              <CircleX
-                onClick={handleCancelModal}
-                className="w-6 h-6 cursor-pointer text-red-500 transition-colors"
-              />
-            </div>
-            <form onSubmit={handleAddTodo}>
-              <div className="flex   justify-center gap-2">
-                <input
-                  required
-                  name="todo"
-                  type="text"
-                  placeholder="Enter your task..."
-                  value={modalTodo}
-                  onChange={(e) => setModalTodo(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 
-                  transition-all text-gray-700 mb-4"
-                />
-                <input
-                  type="hidden"
-                  name="category"
-                  value={modalCategory ?? ""}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  type="submit"
-                  className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 text-md transition-all text-center  duration-200  cursor-pointer"
-                >
-                  {loading ? <Spinner className="size-6" /> : "Add Task"}
-                </Button>
-                <Button
-                  disabled={loading}
-                  type="button"
-                  onClick={handleCancelModal}
-                  className="flex-1 py-5 rounded-lg border border-gray-300 text-gray-700 font-medium text-md bg-white hover:bg-gray-100 transition-all duration-200  cursor-pointer "
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
+    <AddTodoModal   
+    handleCancelModal={handleCancelModal}
+    handleAddTodo={handleAddTodo}
+    modalTodo={modalTodo}
+    setModalTodo={setModalTodo}
+    modalCategory={modalCategory}
+    loading={loading}
+    />
       )}
-    </div>
+    </section>
   );
 }

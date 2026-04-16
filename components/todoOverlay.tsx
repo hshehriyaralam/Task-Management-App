@@ -7,7 +7,7 @@ export default function TodoOverlay({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <section>
       <div
         className={`bg-white rounded-lg border border-gray-200 p-2 py-3
             flex items-center justify-between group transition-all duration-200 cursor-grab
@@ -43,6 +43,6 @@ export default function TodoOverlay({
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

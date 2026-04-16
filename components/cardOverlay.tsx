@@ -2,7 +2,7 @@ import TodoOverlay from "./todoOverlay";
 
 export default function CardOverlay({ todo, cat }: any) {
   return (
-    <div className="bg-white ">
+    <section className="bg-white ">
       <div className="w-[350px] rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         
         {/* Header */}
@@ -31,6 +31,6 @@ export default function CardOverlay({ todo, cat }: any) {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
