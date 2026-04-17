@@ -4,7 +4,6 @@ import { AddTodo, CompleteTodo, DeleteTodo,UpdateTodo } from "@/hooks/todo";
 import { AddNewCategory, DeleteCategory } from "@/hooks/category";
 import Card from "@/components/card";
 import type {  Container } from "@/type/todo";
-
 import { updateCategory} from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -30,7 +29,6 @@ import {
 } from "@dnd-kit/sortable";
 import TodoOverlay from "@/components/todoOverlay";
 import CardOverlay from "@/components/cardOverlay";
-import { updateTodosBulk } from "@/hooks/bulkTodo";
 import { BatchUpdate,flushBatch } from "@/hooks/helpers";
 import Todoform from "@/components/form";
 import AddCategoryModal from "@/components/addCategoryModal";
@@ -636,8 +634,7 @@ useEffect(() => {
         todo={todo}
         setTodo={setTodo}
         category={category}
-        setCategory={setCategory}
-        />
+        setCategory={setCategory} />
 
         {/* cards */}
         <DndContext

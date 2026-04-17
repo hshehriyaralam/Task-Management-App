@@ -78,34 +78,33 @@ export default function LoginForm({accessToken} : any) {
       return;
     }
 
-    // const userId = data?.user?.id;
-    // if (!userId) return;
-
-    // const { data: existingCategories } = await supabase
-    //   .from("categories")
-    //   .select("id")
-    //   .eq("user_id", userId);
+    // check user has board or not
 
 
-    // if (!existingCategories || existingCategories.length === 0) {
-    //   await supabase.from("categories").insert([
-    //       {
-    //         category: "Today",
-    //         user_id: userId!,
-    //         position: 0,
-    //       },
-    //       {
-    //         category: "Month",
-    //         user_id: userId!,
-    //         position: 1,
-    //       },
-    //       {
-    //         category: "Year",
-    //         user_id: userId!,
-    //         position: 2,
-    //       },
-    //     ] as any); 
-    // }
+        const userId = data?.user?.id;
+        if (!userId) return;
+          const { data: boards } = await supabase
+            .from("boards")
+            .select("*")
+            .eq("owner_id", userId)
+
+          if (!boards || boards.length === 0) {
+            const { data: newBoard } = await supabase
+              .from("boards")
+              .insert(
+                [
+
+                  {
+                    name: `${data?.user?.user_metadata.name} Board`,
+                    owner_id: userId,
+                  }
+                ] as any
+            )
+              .select()
+              .single()
+          }
+
+
 
     router.push("/");
     setEmail("");

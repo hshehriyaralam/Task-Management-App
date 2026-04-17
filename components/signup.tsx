@@ -36,7 +36,7 @@ export default function SignUpForm({accessToken}:any) {
 
       // Card Validation
       const userId = data?.user?.id;
-    if (!userId) return;
+        if (!userId) return;
 
     const { data: existingCategories } = await supabase
       .from("categories")

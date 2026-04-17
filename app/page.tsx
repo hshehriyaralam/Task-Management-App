@@ -5,6 +5,7 @@ import { getUserData } from "@/app/lib/helper/getUserData";
 
 export default async function Page() {
    const data = await getUserData();
+
   return (
     <AppProvider value={data}>
     <section className="min-h-screen bg-gradient-to-br

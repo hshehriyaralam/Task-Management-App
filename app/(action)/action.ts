@@ -1,5 +1,4 @@
 'use server'
-import { getUserId } from "@/lib/getUser"
 import { createClient } from "../lib/supabase/server"
 
 
@@ -7,7 +6,6 @@ import { createClient } from "../lib/supabase/server"
 //new Add Todo
 export async function addTodo(formData: FormData) {
   const supabase = await createClient();
-  const userId = await getUserId();
 
   const todo = formData.get("todo");
   const category_id = Number(formData.get("category"));
@@ -15,6 +13,24 @@ export async function addTodo(formData: FormData) {
     .from("todos")
     .select("id")
     .eq("category_id", category_id);
+
+      const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const user_id = user?.id
+
+ const { data: boards } = await supabase
+  .from("boards")
+  .select("id")
+  .eq("owner_id", user?.id)
+  .limit(1)
+  .single();
+
+
+
+
+
+
 
   if (fetchError) {
     console.error("Error fetching todos:", fetchError);
@@ -29,7 +45,8 @@ export async function addTodo(formData: FormData) {
       is_complete: false,
       category_id,
       position,
-      user_id: userId,
+      user_id,
+      board_id : boards?.id,
     })
     .select()
     .single();
@@ -87,18 +104,30 @@ export default async function completeTodo(id:number , compeleteTodo : any ){
 export  async function addCategory(formData : any){
     const supabase = await createClient()
     const category = formData.get('category')
-    // const userId = await  getUserId()
     const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
 
     if (fetchError) {
     console.error('Error fetching categories:', fetchError)
     return }
 
-  const position = ExistingData?.length || 0
- const { error } = await supabase.from('categories').insert({
-    category : category,
-    position : position
-  });
+         const {
+    data: { user },
+  } = await supabase.auth.getUser();
+    
+      
+      const { data: boards } = await supabase
+        .from("boards")
+        .select("id")
+        .eq("owner_id", user?.id)
+        .limit(1)
+        .single();
+
+          const position = ExistingData?.length || 0
+        const { error } = await supabase.from('categories').insert({
+            category : category,
+            position : position,
+            board_id  : boards?.id
+          });
 
     if (error) {
     console.error('Error adding todo:', error);
