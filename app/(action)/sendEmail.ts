@@ -49,7 +49,7 @@ export const sendInvite =  async  (boardId : number, email : string) => {
       to   : email,
       subject : "Board Invite",
       html :  `<p>You are invited to view board</p>
-                <a href="${link}">Open Board</a>`,
+                <a href="${link}">${link}</a>`,
     })
       return link
 

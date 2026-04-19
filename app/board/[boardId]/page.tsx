@@ -1,28 +1,47 @@
 import { createClient } from "@/app/lib/supabase/server";
 import TodoHome from "@/app/pages/home";
+import BoardClient from "@/components/boardClient";
 
 export default async function Page({ params, searchParams }: any) {
   const supabase = await createClient();
 
-  const boardId = Number(params.boardId);
-  const token = searchParams.token;
+   // ✅ unwrap both
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
 
-  if (!token) return <div>Access Denied</div>;
+  const boardId = resolvedParams.boardId
+  const token = resolvedSearchParams.token;
+
+
+
+
+
+
+
+  if (!token) return (<div>Access Denied</div>)
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+;
 
-  if (!user) {
-    return <div>Please login first 🔐</div>;
+
+  
+  if (!user){
+   <BoardClient
+      boardId={boardId}
+      token={token}
+      user={user}
+    />
   }
-
+  
   // ✅ get invitation
   const { data: invite } = await supabase
-    .from("invitations")
-    .select("*")
-    .eq("token", token)
-    .single();
+  .from("invitations")
+  .select("*")
+  .eq("token", token)
+  .single();
+  
 
   if (!invite) {
     return <div>Invalid Link ❌</div>;
@@ -32,7 +51,7 @@ export default async function Page({ params, searchParams }: any) {
     return <div>Access Denied ❌</div>;
   }
 
-  if (invite.email !== user.email) {
+  if (invite.email !== user?.email) {
     return <div>Unauthorized User ❌</div>;
   }
 
@@ -53,8 +72,7 @@ export default async function Page({ params, searchParams }: any) {
   return (
     <div>
       <h1>Shared Board 👀</h1>
-
-      <TodoHome/>
+      {/* <TodoHome/> */}
     </div>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {  useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
-import { getUserId } from "@/lib/getUser"
+import { useAuth } from "@/context/AuthContext";
+
 
 
 
@@ -15,53 +16,14 @@ export default function LoginForm({accessToken} : any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const supabase = getSupabaseBrowserClient();
-
   const [loading, setLoading] = useState(false);
-
-  // const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-
-  //   if (loading) return;
-  //   setLoading(true);
-
-  //   try {
-  //     const { error : login } = await supabase.auth.signInWithPassword({
-  //       email,
-  //       password,
-  //     })
-      
-  //     if(login?.message === 'Email not confirmed'){
-  //     toast.error("Please confirm email first.", {position : "top-center"});
-  //     return
-  //     }else
-        
-  //      if(login?.message === 'Invalid login credentials'){
-  //     toast.error("Email Or Password not valid", {position : "top-center"});
-  //     // console.log("error", error)
-  //     // setEmail("")
-  //     // setPassword("")
-  //     return
-  //     }else{
-  //     router.push("/")
-  //     setEmail("");
-  //     setPassword("");
-  //     toast.success("Login Successfully", { position: "top-center" });
-  //     }
-     
-  //   } catch (error) {
-  //     toast.error("Something went wrong");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const { postLoginRedirect, setPostLoginRedirect } = useAuth();
 
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault();
-
   if (loading) return;
   setLoading(true);
-
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -77,36 +39,14 @@ export default function LoginForm({accessToken} : any) {
       toast.error("Email Or Password not valid", { position: "top-center" });
       return;
     }
+     // 🔥 IMPORTANT DECISION POINT
+      if (postLoginRedirect) {
+        router.push(postLoginRedirect);
+        setPostLoginRedirect(null); // reset
+      } else {
+        router.push("/home");
+      }
 
-    // check user has board or not
-
-
-        const userId = data?.user?.id;
-        if (!userId) return;
-          const { data: boards } = await supabase
-            .from("boards")
-            .select("*")
-            .eq("owner_id", userId)
-
-          if (!boards || boards.length === 0) {
-            const { data: newBoard } = await supabase
-              .from("boards")
-              .insert(
-                [
-
-                  {
-                    name: `${data?.user?.user_metadata.name} Board`,
-                    owner_id: userId,
-                  }
-                ] as any
-            )
-              .select()
-              .single()
-          }
-
-
-
-    router.push("/");
     setEmail("");
     setPassword("");
 

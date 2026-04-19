@@ -46,7 +46,7 @@ export async function getUserData() {
     categories?.filter((cat) => cat.user_id === user?.id) || [];
 
   return {
-    accessToken,
+    accessToken : accessToken,
     todos: filterTodo,
     categories: filterCategory,
     userName: user?.user_metadata?.name,

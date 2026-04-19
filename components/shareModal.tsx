@@ -22,7 +22,7 @@ const ShareModal = ({setShareModal}:any) => {
   const handleSendEmail = async () => {
     await sendInvite(boardId, email)
     setShareModal(false)
-    toast.success('Successfully Send Email')
+    toast.success('Successfully Send Email', {position : 'top-center'})
     setEmail('')
   }
 

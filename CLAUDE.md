@@ -65,7 +65,6 @@ Email invite button (later)
 
 
 🔥 STEP 4: Viewer page (IMPORTANT)
-
 Route:
 
 /board/[boardId]
@@ -144,66 +143,24 @@ Viewer mode open hota hai
 Owner jo kare → viewer real-time dekhe 👀
 
 
+//login page auto redirect 
+useEffect(() => {
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (session) {
+      router.push(redirect || "/home");
+    }
+  };
+
+  checkUser();
+}, []);
 
 
-action/share.ts
-"use server";
-
-import { createClient } from "@/app/lib/supabase/server";
-import { nanoid } from "nanoid";
-
-export async function generateShareLink(boardId: number) {
-  const supabase = await createClient();
-
-  const token = nanoid();
-
-  const { error } = await supabase.from("invitations").insert({
-    board_id: boardId,
-    token,
-    role: "viewer",
-  });
-
-  if (error) {
-    console.error("Share error:", error);
-    throw new Error("Failed to generate link");
-  }
-
-  const link = `${process.env.NEXT_PUBLIC_SITE_URL}/board/${boardId}?token=${token}`;
-
-  return link;
-}
-
-
-// link generate function  
-const handleOpenShareModal = async (boardId: number) => {
-  setLoadingLink(true);
-
-  try {
-    await 
-    const link = await generateShareLink(boardId);
-    setShareLink(link);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoadingLink(false);
-  }
-
-  setShowShareModal(true);
-};
-
-copy function 
-const handleCopy = async () => {
-  try {
-    await navigator.clipboard.writeText(shareLink);
-    alert("Link copied!");
-  } catch (err) {
-    console.error("Copy failed", err);
-  }
-};
-
-
-
-pending task 
-apply user to email in to email in rsend 
+pending task :
+apply user to email in to email in resend 
 apply board id in initial add category 
+if category delete all todo this todo also delete 
+name not insert in user table   
+
 
