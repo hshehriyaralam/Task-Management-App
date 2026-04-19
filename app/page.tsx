@@ -1,7 +1,7 @@
 import Header from "@/components/header";
 import TodoHome from "@/app/pages/home";
 import { AppProvider } from "@/context/AppContext";
-import { getUserData } from "@/app/lib/helper/getUserData";
+import { getUserData } from "@/app/lib/helper/getData";
 
 export default async function Page() {
    const data = await getUserData();

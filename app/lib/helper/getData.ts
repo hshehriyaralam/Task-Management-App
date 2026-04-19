@@ -23,6 +23,22 @@ export async function getUserData() {
     "sb-xilzbhrcplvgwljkwtsb-auth-token"
   )?.value;
 
+  const {data  : board} = await supabase.from("boards")
+  .select("*")
+  .eq("owner_id", user?.id)
+  .single();
+
+
+  // get all users 
+  // const { data: allUsers } = await supabase
+  // .from("users")
+  // .select("*")
+ 
+
+
+
+
+
   const filterTodo =
     todos?.filter((todo) => todo.user_id === user?.id) || [];
 
@@ -34,5 +50,6 @@ export async function getUserData() {
     todos: filterTodo,
     categories: filterCategory,
     userName: user?.user_metadata?.name,
+    board : board,
   };
 }

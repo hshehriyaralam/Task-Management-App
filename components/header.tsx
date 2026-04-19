@@ -10,11 +10,12 @@ import { useAppContext } from "@/context/AppContext";
 import ShareModal from "./shareModal";
 
 function Header() {
-  const { userName } = useAppContext();
+  const { userName} = useAppContext();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const supabase = getSupabaseBrowserClient();
   const [shareModal, setShareModal] = useState(false);
+
 
   const handleLogOut = async () => {
     try {
@@ -41,14 +42,11 @@ function Header() {
               onClick={() => setShareModal(true)}
               className="bg-secondary  flex items-center   rounded-xl  w-30 py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-md  cursor-pointer"
             >
-              {loading ? (
-                <Spinner className="size-6" />
-              ) : (
-                <>
+             <>
                   Share
                   <Share className="w-4 text-gray-200" />
                 </>
-              )}
+
             </Button>
 
             <Button

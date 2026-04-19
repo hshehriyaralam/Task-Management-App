@@ -31,17 +31,45 @@ export default function SignUpForm({accessToken}:any) {
         },
       });
       if(error){
-        toast.error("Something went Wrong", {position : 'top-center'})
+
+          if(error.message === "User already registered"){
+          toast.error("User already registered, Please Login", {position : 'top-center'})
+          router.push('/login')
+          return;
+        }else if (error.message === "Password should be at least 6 characters."){
+          toast.error("Password should be at least 6 characters", {position : 'top-center'})
+          return;
+        }else{
+          toast.error("Something went Wrong", {position : 'top-center'})
+        }
       }
+
+     
 
       // Card Validation
       const userId = data?.user?.id;
         if (!userId) return;
 
+
+          if (data?.user) {
+        await supabase.from("users").insert(
+          [
+          {
+          id: userId,
+          email: data.user.email,
+          name : data?.user.user_metadata?.name
+        }
+      ] as any);
+      }
+
+
+
     const { data: existingCategories } = await supabase
       .from("categories")
       .select("id")
       .eq("user_id", userId);
+
+    
 
 
     if (!existingCategories || existingCategories.length === 0) {
@@ -69,8 +97,10 @@ export default function SignUpForm({accessToken}:any) {
       toast.success("SignUp Successfully", {position : 'top-center'});
       router.push('/login')
       console.log(error?.message);
-    } catch (error) {
-      toast.error("Something went wrong");
+    } catch (error:any) {
+          toast.error("Something went Wrong", {position : 'top-center'})
+     
+
     } finally {
       setLoading(false);
     }

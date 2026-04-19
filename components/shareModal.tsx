@@ -3,24 +3,30 @@
 import { CircleX} from "lucide-react"
 import { Button } from "./ui/button"
 import { useState } from "react"
-import { sendInvite } from "@/app/(action)/share"
+import { sendInvite } from "@/app/(action)/sendEmail"
 import { createClient } from "@/app/lib/supabase/client"
 import { Spinner } from "./ui/spinner"
+import { useAppContext } from "@/context/AppContext"
+import { toast } from "sonner"
 
 
 
 const ShareModal = ({setShareModal}:any) => {
+    const { board} = useAppContext(); 
   const [loadingLink,setLoadingLink] = useState(false)
   const [shareLink,setShareLink] = useState('')
   const [email, setEmail] = useState('')
 
+  const boardId = board?.id
 
-
-  const handleSendEmail = async  () => {
-    
-    await sendInvite(,email)
+  const handleSendEmail = async () => {
+    await sendInvite(boardId, email)
+    setShareModal(false)
+    toast.success('Successfully Send Email')
     setEmail('')
   }
+
+
   return (
        <section
           className="fixed inset-0 bg-black/30 
