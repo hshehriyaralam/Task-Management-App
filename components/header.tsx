@@ -6,22 +6,29 @@ import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import { LogOut, Share } from "lucide-react";
-import { useAppContext } from "@/context/AppContext";
 import ShareModal from "./shareModal";
 
-function Header({ userName, isViewer }: any) {
-  // const { userName} = useAppContext();
+function Header({ userName, isViewer, boardId, token }: any) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const supabase = getSupabaseBrowserClient();
   const [shareModal, setShareModal] = useState(false);
+  const params = new URLSearchParams();
+  params.set('token', 'newToken');
 
   const handleLogOut = async () => {
     try {
       setLoading(true);
       await supabase.auth.signOut();
       toast.success("Succcessfully LogOut", { position: "top-center" });
+      // router.push("/login");
+       if (isViewer) {
+      const redirect = `/board/${boardId}?token=${token}`;
+      router.push(`/login?redirect=${encodeURIComponent(redirect)}`);
+    } else {
       router.push("/login");
+    }
+      
     } catch (error) {
       toast.error("Logout failed", { position: "top-center" });
     } finally {

@@ -15,7 +15,10 @@ export default function WrapperComponent(){
               <div className="max-w-7xl mx-auto p-6 lg:p-4  ">
                 <Header 
                 isViewer={false}
-                userName={userName}/>
+                userName={userName}
+                 boardId={null}
+                  token={null}
+                />
                 <TodoHome
                 todos={todos}
                 categories={categories}

@@ -3,9 +3,10 @@
 import {  useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams,  usePathname } from 'next/navigation'
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
 
 
@@ -16,8 +17,17 @@ export default function LoginForm({accessToken} : any) {
   const [password, setPassword] = useState("");
   const supabase = getSupabaseBrowserClient();
   const [loading, setLoading] = useState(false);
-    const searchParams = useSearchParams();
+  const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
+  const [mode, setMode] = useState(redirect ? "viewer" : "user")
+  const pathname = usePathname();
+
+  const handleTabChange = (val: string) => {
+  setMode(val); 
+  if (val === "user") {
+    router.replace(pathname);
+  }
+};
 
 
 
@@ -41,9 +51,10 @@ export default function LoginForm({accessToken} : any) {
       toast.error("Email Or Password not valid", { position: "top-center" });
       return;
     }
-       if (redirect) {
+    if (redirect) {
     router.push(redirect);
-    } else {
+    }
+    else {
     router.push("/");
     }
 
@@ -58,11 +69,6 @@ export default function LoginForm({accessToken} : any) {
     setLoading(false);
   }
 };
-      // useEffect (() => {
-      //   if (accessToken) {
-      //     router.push("/");
-      //   }
-      // }, [accessToken, router]);
     
 
   return (
@@ -72,8 +78,24 @@ export default function LoginForm({accessToken} : any) {
       onSubmit={handleLogin}
       className="border border-gray-200 p-5 sm:p-6 w-full min-h-[400px] rounded-xl flex flex-col gap-4"
     >
+      
+      {/* <Tabs 
+      defaultValue="viewer"
+      value={mode} onValueChange={handleTabChange}  className=" mx-auto  ">
+      <TabsList  className="cursor-pointer ">
+        <TabsTrigger  
+        className="cursor-pointer font-semibold font-quicksand" 
+         value="viewer">As Viewer</TabsTrigger>
+        <TabsTrigger 
+         className="cursor-pointer font-semibold font-quicksand"  
+           value="user"
+           >As User</TabsTrigger>
+      </TabsList>
+      </Tabs>  */}
+      
+
       <h1 className="text-xl sm:text-2xl font-bold text-gray-600 text-center font-quicksand">
-        {redirect ? 'Viewer Login' : 'Login'}
+        {mode === "viewer" ? "Viewer Login" : "User Login"}
       </h1>
 
       <label className="text-gray-700 font-medium text-sm sm:text-base font-quicksand">
