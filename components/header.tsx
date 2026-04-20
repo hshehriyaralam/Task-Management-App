@@ -9,13 +9,12 @@ import { LogOut, Share } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import ShareModal from "./shareModal";
 
-function Header() {
-  const { userName} = useAppContext();
+function Header({ userName, isViewer }: any) {
+  // const { userName} = useAppContext();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const supabase = getSupabaseBrowserClient();
   const [shareModal, setShareModal] = useState(false);
-
 
   const handleLogOut = async () => {
     try {
@@ -34,20 +33,23 @@ function Header() {
       <header className="z-50">
         <div className="flex items-center justify-between   mb-2">
           <div>
-            <h1 className="text-4xl font-bold text-gray-800">Hi {userName}</h1>
+            <h1 className="text-4xl font-bold text-gray-800">
+              Hello {isViewer ? "Viewer" : userName}
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              onClick={() => setShareModal(true)}
-              className="bg-secondary  flex items-center   rounded-xl  w-30 py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-md  cursor-pointer"
-            >
-             <>
-                  Share
+            {!isViewer && (
+              <Button
+                onClick={() => setShareModal(true)}
+                className="bg-secondary  flex items-center   rounded-xl  w-34 py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-[14px]  cursor-pointer"
+              >
+                <>
+                  Share Board
                   <Share className="w-4 text-gray-200" />
                 </>
-
-            </Button>
+              </Button>
+            )}
 
             <Button
               className="bg-secondary  flex items-center   rounded-xl  w-30   py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-md  cursor-pointer   "

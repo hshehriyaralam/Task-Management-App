@@ -1,6 +1,3 @@
-
-
-
 import LoginForm from "@/components/login"
 import { cookies } from "next/headers";
 
@@ -20,4 +17,4 @@ export default async function  SignUpPage(){
       </div>
       </section>
     )
-}
+} 

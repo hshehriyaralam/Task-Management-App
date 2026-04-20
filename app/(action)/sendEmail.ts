@@ -31,7 +31,7 @@ export const sendInvite =  async  (boardId : number, email : string) => {
         board_id : boardId,
         email,
         token,
-        role : "Viewer",
+        role : "viewer",
         expires_at : new Date(Date.now() + 86400000)
       }
     ])

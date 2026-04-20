@@ -1,4 +1,4 @@
-'use client'
+"use client"
 import { createContext, useContext } from "react";
 
 type AuthContextType = {
@@ -16,4 +16,4 @@ export const useAuth = () => {
   }
 
   return context;
-};
+}

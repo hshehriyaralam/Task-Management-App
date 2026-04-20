@@ -34,13 +34,12 @@ import Todoform from "@/components/form";
 import AddCategoryModal from "@/components/addCategoryModal";
 import EditTodoPopUp from "@/components/editTodoPopUp";
 import AddTodoModal from "@/components/addTodoModal";
-import { useAppContext } from "@/context/AppContext";
 
 
 
 
-export default function TodoHome() {
-  const { todos, categories, accessToken } = useAppContext(); 
+export default function TodoHome({todos, categories, accessToken,isViewer,boardId}:any) {
+  // const { todos, categories, accessToken } = useAppContext(); 
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
   const [modalTodo, setModalTodo] = useState("");
@@ -597,13 +596,40 @@ const handleCompleteTodo = async (id: number) => {
     }
   }, [accessToken, router]);
 
+// useEffect(() => {
+//   const fetchData = async () => {
+//     const supabase = createClient();
+
+//     const { data: { user } } = await supabase.auth.getUser();
+
+//     if (!user) return;
+
+//     const { data: todos } = await supabase
+//       .from("todos")
+//       .select("*")
+//       .eq("user_id", user.id);
+
+//     const { data: categories } = await supabase
+//       .from("categories")
+//       .select("*")
+//       .eq("user_id", user.id);
+
+//     setContainers(buildContainers(categories || [], todos || []));
+//   };
+
+//   fetchData();
+// }, []);
+
+// new useEffect filtered by boardId
+// Independent fetchData useEffect mein
 useEffect(() => {
   const fetchData = async () => {
     const supabase = createClient();
-
     const { data: { user } } = await supabase.auth.getUser();
-
     if (!user) return;
+
+ 
+    if (boardId) return;
 
     const { data: todos } = await supabase
       .from("todos")
@@ -617,11 +643,8 @@ useEffect(() => {
 
     setContainers(buildContainers(categories || [], todos || []));
   };
-
   fetchData();
 }, []);
-
-
 
   return (
     <section>
@@ -634,15 +657,17 @@ useEffect(() => {
         todo={todo}
         setTodo={setTodo}
         category={category}
-        setCategory={setCategory} />
+        setCategory={setCategory}
+        isViewer={isViewer}
+        />
 
         {/* cards */}
         <DndContext
-          sensors={sensor}
+            sensors={isViewer ? [] : sensor}
           collisionDetection={rectIntersection}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
+          onDragStart={isViewer ? undefined : handleDragStart}
+          onDragOver={isViewer ? undefined : handleDragOver}
+          onDragEnd={isViewer ? undefined : handleDragEnd}
         >
           <SortableContext
             items={categoryIds}
@@ -660,6 +685,7 @@ useEffect(() => {
                   TaskModalOpen={TaskModalOpen}
                   handleDeleteCategory={handleDeleteCategory}
                   handleCompleteTodo={handleCompleteTodo}
+                  isViewer={isViewer}
                 />
               ))}
             </div>
