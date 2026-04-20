@@ -8,7 +8,7 @@ import { createClient } from '../lib/supabase/server'
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 
-export const sendInvite =  async  (boardId : number, email : string) => {
+export const sendInvite =  async  (boardId : number, email : string, name : string) => {
   const supabase =  await createClient()
 
   // check user through email
@@ -18,8 +18,8 @@ export const sendInvite =  async  (boardId : number, email : string) => {
     .eq("email", email)
     .single();
 
-    if(!user){
-      console.log("user was not registered")
+    if (!user) {
+      throw new Error("User is not registered");
     }
 
     // generate token 
@@ -48,8 +48,8 @@ export const sendInvite =  async  (boardId : number, email : string) => {
       from: 'onboarding@resend.dev',
       to   : email,
       subject : "Board Invite",
-      html :  `<p>You are invited to view board</p>
-                <a href="${link}">${link}</a>`,
+      html :  `<p>${name} invited to view board</p>
+                <a href="${link}">Open Board</a>`,
     })
       return link
 

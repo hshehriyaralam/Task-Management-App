@@ -74,7 +74,10 @@ function Header({ userName, isViewer, boardId, token }: any) {
         </div>
       </header>
 
-      {shareModal && <ShareModal setShareModal={setShareModal} />}
+      {shareModal && <ShareModal 
+      setShareModal={setShareModal}
+      name={userName}
+      />}
     </section>
   );
 }

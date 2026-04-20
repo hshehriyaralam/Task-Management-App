@@ -8,7 +8,7 @@ import { Spinner } from "./ui/spinner";
 import { useAppContext } from "@/context/AppContext";
 import { toast } from "sonner";
 
-const ShareModal = ({ setShareModal }: any) => {
+const ShareModal = ({ setShareModal , name}: any) => {
   const { board } = useAppContext();
   const [loadingShare, setLoadingShare] = useState(false);
   const [email, setEmail] = useState("");
@@ -17,7 +17,7 @@ const ShareModal = ({ setShareModal }: any) => {
   const handleSendEmail = async () => {
     try {
       setLoadingShare(true);
-      await sendInvite(boardId, email);
+      await sendInvite(boardId, email, name);
       setShareModal(false);
       toast.success("Successfully Send Email", { position: "top-center" });
       setEmail("");
@@ -38,7 +38,7 @@ const ShareModal = ({ setShareModal }: any) => {
         className="bg-white rounded-2xl p-6 w-[450px] shadow-xl animate-fadeIn"
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold teaxt-gray-800">Share board</h2>
+          <h2 className="text-md font-semibold teaxt-gray-800">Share board to another user </h2>
           <CircleX
             onClick={() => setShareModal(false)}
             className="w-6 h-6  cursor-pointer

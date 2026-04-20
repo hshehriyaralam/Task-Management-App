@@ -1,12 +1,10 @@
 "use client";
-
 import {  useState } from "react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/app/lib/supabase/browserClient";
 import { useRouter, useSearchParams,  usePathname } from 'next/navigation'
 import { Button } from "./ui/button";
 import { Spinner } from "./ui/spinner";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
 
 
@@ -21,13 +19,6 @@ export default function LoginForm({accessToken} : any) {
   const redirect = searchParams.get("redirect");
   const [mode, setMode] = useState(redirect ? "viewer" : "user")
   const pathname = usePathname();
-
-  const handleTabChange = (val: string) => {
-  setMode(val); 
-  if (val === "user") {
-    router.replace(pathname);
-  }
-};
 
 
 
