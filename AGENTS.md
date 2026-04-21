@@ -1,68 +1,47 @@
-todo drag and drop ,card drag & drop
+category and todo to perfectly work kar rahe hai But ek bug hain isme jab main category ko re-order krun and phir jo category re-order hui hai usme agar me us card me ke kisi bh todo kuch action perform krun to card ki position chnage ho rhi wo again re-order ho raha hai kuch glitch issue hai isme ya koi refresnce ka issue hai
 
 
 
+const handleCategoryDragEnd = useCallback(
+  async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
 
-scheduleBatchUpdate([
-  {
-    id: Number(movedItem.id),
-    position: newIndex,
-    category_id: Number(overContainerId),
+    const activeRaw = String(active.id).replace("cat-", "");
+    const overRaw = String(over.id).replace("cat-", "");
+
+    if (!String(over.id).startsWith("cat-")) return;
+
+    const latest = [...latestContainersRef.current];
+
+    const oldIndex = latest.findIndex((c) => String(c.id) === activeRaw);
+    const newIndex = latest.findIndex((c) => String(c.id) === overRaw);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(latest, oldIndex, newIndex);
+
+    // ✅ UI update
+    setContainers(reordered);
+    latestContainersRef.current = reordered;
+
+    // ✅ 🔥 CRITICAL FIX (missing piece)
+    latestCategoriesRef.current = reordered.map((cat, index) => ({
+      id: cat.id,
+      category: cat.title,
+      position: index,
+    }));
+
+    try {
+      const items = reordered.map((cat, index) => ({
+        id: Number(cat.id),
+        position: index,
+      }));
+
+      await updateCategoriesBulk(items);
+    } catch (err) {
+      console.error("Category bulk update failed", err);
+    }
   },
-]);
-
-
-
-const updatedSourceItems = sourceContainer.items
-  .filter(item => item.id !== active.id)
-  .map((item, index) => ({
-    id: Number(item.id),
-    position: index,
-    category_id: Number(activeContainerId),
-  }));
-
-const updatedDestinationItems = [
-  ...destinationContainer.items.slice(0, newIndex),
-  movedItem,
-  ...destinationContainer.items.slice(newIndex),
-].map((item, index) => ({
-  id: Number(item.id),
-  position: index,
-  category_id: Number(overContainerId),
-}));
-
-scheduleBatchUpdate([
-  ...updatedSourceItems,
-  ...updatedDestinationItems,
-]);
-
-
-------------------------------------------------------------------
-
-    isSyncingRef.current = true;
-if (isSyncingRef.current) return;
-await flushBatch({ batchTimerRef, updateQueueRef, isSyncingRef });
-
-isSyncingRef.current = false;
-
-
-
-
-3
-const latestContainers = [...containers];
-
-const latestContainers = [...latestContainersRef.current];
-
-
-4
-optimisticRef.current = null;
-
-if (isDraggingRef.current || isSyncingRef.current) return;
-
-
-5
-updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    items.map(item => [item.id, item])
-  )
+  []
 );

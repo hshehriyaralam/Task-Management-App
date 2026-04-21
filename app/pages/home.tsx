@@ -34,6 +34,7 @@ import Todoform from "@/components/form";
 import AddCategoryModal from "@/components/addCategoryModal";
 import EditTodoPopUp from "@/components/editTodoPopUp";
 import AddTodoModal from "@/components/addTodoModal";
+import { updateCategoriesBulk } from "@/hooks/bulkCategory";
 
 
 
@@ -86,10 +87,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   const scheduleBatchUpdate = useCallback((items: any[]) => {
       // new data for solve drag and drop issue 
     updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    items.map(item => [item.id, item])
-  )
-);
+      Object.fromEntries(
+        items.map(item => [item.id, item])
+      ));
     BatchUpdate({items,updateQueueRef,batchTimerRef})
   }, []);
 
@@ -152,22 +152,24 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       const { active, over } = event;
       if (!over || active.id === over.id) return;
       const activeRaw = String(active.id).replace("cat-", "");
-      const overRaw = String(over.id).replace("cat-", "");
+      const overRaw = String(over.id
+      ).replace("cat-", "");
       if (!String(over.id).startsWith("cat-")) return;
       const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
       const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
       if (oldIndex === -1 || newIndex === -1) return;
       const reordered = arrayMove(containers, oldIndex, newIndex);
-      setContainers(reordered);
-      try {
-        await Promise.all(
-          reordered.map((cat, index) =>
-            updateCategory(Number(cat.id), { position: index }),
-          ),
-        );
-      } catch (err) {
-        console.error("DB update failed (category reorder)", err);
-      }
+        setContainers(reordered);
+        latestContainersRef.current = reordered;
+        try {
+      const items = reordered.map((cat, index) => ({
+        id: Number(cat.id),
+        position: index,
+      }));
+      await updateCategoriesBulk(items);
+    } catch (err) {
+      console.error("Category bulk update failed", JSON.stringify(err));
+    }
     },
     [containers],
   );
@@ -267,8 +269,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
         return
       }
       const latestContainers = [...containers];
-      // new data for solve drag and drop issue 
-      // const latestContainers = [...latestContainersRef.current];
+
       const sourceContainer = latestContainers.find(
         (c) => c.id === activeContainerId,
       );

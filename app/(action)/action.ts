@@ -2,8 +2,7 @@
 import { createClient } from "../lib/supabase/server"
 
 
-
-//new Add Todo
+//  Add Todo
 export async function addTodo(formData: FormData) {
   const supabase = await createClient();
 
