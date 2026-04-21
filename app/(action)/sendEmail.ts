@@ -1,5 +1,4 @@
 "use server";
-
 import { nanoid } from 'nanoid';
 import {Resend} from 'resend'
 import { createClient } from '../lib/supabase/server'
