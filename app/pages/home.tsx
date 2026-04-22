@@ -424,8 +424,11 @@ const handleCompleteTodo = async (id: number) => {
   
 // Category CRUD 
   const handleAddCategory = useCallback(async (e:any) => {
-    await AddNewCategory({e,setLoading,setShowModal,updateContainers})
+    setLoading(true)
+    await AddNewCategory({e,updateContainers})
     setNewCategory("")
+    setLoading(false)
+    setShowModal(false)
   },[])
 
    const handleDeleteCategory =  useCallback(async (catId: number) => {
