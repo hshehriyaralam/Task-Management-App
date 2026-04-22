@@ -8,7 +8,7 @@ export async function updateTodosBulk(items: any[]) {
   });
 
   if (error) {
-    console.error("Bulk update failed", error);
+    console.log("Bulk update failed", error.message);
     throw error;
   }
 }

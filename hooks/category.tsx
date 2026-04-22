@@ -3,40 +3,47 @@ import { toast } from "sonner";
 
 
 
-
-
-  export const AddNewCategory = async ({e,updateContainers}:any) => {
+export const AddNewCategory = async ({ e, updateContainers }: any) => {
   e.preventDefault();
-  // setLoading(true);
+
   const formData = new FormData(e.currentTarget);
-  const name = formData.get("category")
+  const name = formData.get("category");
+
   const tempId = Date.now();
+  updateContainers((prev: any) => [
+    ...prev,
+    {
+      id: tempId,
+      title: name,
+      items: [],
+      position: prev.length,
+    },
+  ]);
+
   try {
-    await addCategory(formData);
-    updateContainers((prev:any) => [
-      ...prev,
-      {
-        id: tempId,
-        title: name,
-        items: [],
-        position: prev.length
-      },
-    ]);
-    toast.success("New Card Successfully Added", {
-      position: "top-center"
+    const created = await addCategory(formData);
+    updateContainers((prev: any) =>
+      prev.map((c: any) =>
+        c.id === tempId
+          ? {
+              ...c,
+              id: created.id,
+              title: created.category,
+            }: c));
+
+    toast.success("New Category Added", {
+      position: "top-center",
     });
   } catch (err) {
-    updateContainers((prev:any) =>
-      prev.filter((c:any) => c.id !== tempId)
+    updateContainers((prev: any) =>
+      prev.filter((c: any) => c.id !== tempId)
     );
 
-    toast.error("New Card Not Added", {
-      position: "top-center"
+    toast.error("Category creation failed", {
+      position: "top-center",
     });
-
-  } 
+  }
 };
-
 
 
 

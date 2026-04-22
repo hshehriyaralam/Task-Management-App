@@ -2,7 +2,6 @@ import { createClient } from "@/app/lib/supabase/client";
 
 export async function updateCategoriesBulk(items: any[]) {
   const supabase = createClient();
-
   const { error } = await supabase.rpc("reorder_categories", {
     items,
   });

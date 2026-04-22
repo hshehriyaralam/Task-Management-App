@@ -120,7 +120,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   const TaskModalOpen = useCallback((categoryId: number) => {
     setShowTaskModal(true);
     setModalCategory(categoryId);
-    console.log("modal category", modalCategory);
     setTodo("");
     setCategory("");
     setModalTodo("");
@@ -183,7 +182,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   }, []);
 
 
-  
+
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event;
@@ -208,15 +207,12 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
         const newContainers = prev.map((container) => {
           if (container.id === activeContainerId) {
             return {
-              ...container,
-              items: container.items.filter((item) => item.id !== activeId),
+              ...container, items: container.items.filter((item) => item.id !== activeId),
             };
           }
           if (container.id === overContainerId) {
             if (overId === overContainerId) {
-              return {
-                ...container,
-                items: [...container.items, activeItem],
+              return { ...container, items: [...container.items, activeItem],
               };
             }
             const overItemIndex = container.items.findIndex(
@@ -264,12 +260,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       }
       const latestContainers = [...containers];
 
-      const sourceContainer = latestContainers.find(
-        (c) => c.id === activeContainerId,
-      );
-      const destinationContainer = latestContainers.find(
-        (c) => c.id === overContainerId,
-      );
+      const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
+      const destinationContainer = latestContainers.find((c) => c.id === overContainerId);
       if (!sourceContainer || !destinationContainer) {
         setActiveId(null);
         return
@@ -291,23 +283,15 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           const nextState = (() => {
           const latestContainers = [...containers];
 
-          const sourceContainer = latestContainers.find(
-            (c) => c.id === activeContainerId,
-          );
-            const destinationContainer = latestContainers.find(
-              (c) => c.id === overContainerId,
-            );
+          const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
+            const destinationContainer = latestContainers.find( (c) => c.id === overContainerId);
 
             if (!sourceContainer || !destinationContainer)
               return latestContainers;
 
             if (activeContainerId === overContainerId) {
-              const activeIndex = sourceContainer.items.findIndex(
-                (item) => item.id === active.id,
-              );
-              const overIndex = sourceContainer.items.findIndex(
-                (item) => item.id === over.id,
-              );
+              const activeIndex = sourceContainer.items.findIndex( (item) => item.id === active.id);
+              const overIndex = sourceContainer.items.findIndex( (item) => item.id === over.id);
               const newItems = arrayMove(
                 sourceContainer.items,
                 activeIndex,
@@ -336,8 +320,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
               }),),
               
             );
-          } catch (err) {
-            console.error("DB update failed (reorder)", err);
+          } catch (err:any) {
+            console.error("DB update failed reorder", err.message);
           }
         }
       } else {
@@ -383,7 +367,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
             ...updatedDestinationItems,
           ]);
         } catch (err) {
-          console.error("DB update failed (move)", err);
+          console.error("DB update failed move", err);
         }
       }
 
@@ -431,8 +415,8 @@ const handleCompleteTodo = async (id: number) => {
     setShowModal(false)
   },[])
 
-   const handleDeleteCategory =  useCallback(async (catId: number) => {
-    await DeleteCategory({catId,categories,containers,updateContainers,setContainers})
+  const handleDeleteCategory =  useCallback(async (catId: number) => {
+  await DeleteCategory({catId,categories,containers,updateContainers,setContainers})
 },[])
 
 
@@ -467,7 +451,7 @@ const handleCompleteTodo = async (id: number) => {
   latestCategoriesRef.current = categories;
 
   setContainers(buildContainers(categories, todos));
-}, []); // ✅ ONLY ONCE
+}, [todos,categories]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -479,9 +463,6 @@ const handleCompleteTodo = async (id: number) => {
         (payload) => {
           if (isDraggingRef.current) return;
           if (isSyncingRef.current) return;
-
-
-
           const { eventType, new: newRecord, old } = payload;
 
           let updatedTodos = [...latestTodosRef.current];
@@ -507,18 +488,6 @@ const handleCompleteTodo = async (id: number) => {
                 updatedTodos
               )
             );
-          // setContainers(prev => {
-          //   return prev.map(container => {
-          //     return {
-          //       ...container,
-          //       items: container.items
-          //         .filter(item => updatedTodos.some(t => t.id === item.id))
-          //         .map(item =>
-          //           updatedTodos.find(t => t.id === item.id)!
-          //         ),
-          //     };
-          //   });
-          // });
         },
       )
       .subscribe();
@@ -526,7 +495,7 @@ const handleCompleteTodo = async (id: number) => {
     return () => {
       supabase.removeChannel(todoChannel);
     };
-  }, []);
+  }, [containers]);
 
   useEffect(() => {
   const supabase = createClient();
@@ -538,7 +507,7 @@ const handleCompleteTodo = async (id: number) => {
       { event: "*", schema: "public", table: "categories" },
       (payload) => {
         if (isDraggingRef.current) return;
-          if (isSyncingRef.current) return;
+          // if (isSyncingRef.current) return;
         const { eventType, new: newRecord, old } = payload;
 
         let updatedCategories = [...latestCategoriesRef.current];
@@ -595,32 +564,8 @@ const handleCompleteTodo = async (id: number) => {
     }
   }, [accessToken, router]);
 
-// useEffect(() => {
-//   const fetchData = async () => {
-//     const supabase = createClient();
 
-//     const { data: { user } } = await supabase.auth.getUser();
 
-//     if (!user) return;
-
-//     const { data: todos } = await supabase
-//       .from("todos")
-//       .select("*")
-//       .eq("user_id", user.id);
-
-//     const { data: categories } = await supabase
-//       .from("categories")
-//       .select("*")
-//       .eq("user_id", user.id);
-
-//     setContainers(buildContainers(categories || [], todos || []));
-//   };
-
-//   fetchData();
-// }, []);
-
-// new useEffect filtered by boardId
-// Independent fetchData useEffect mein
 useEffect(() => {
   const fetchData = async () => {
     const supabase = createClient();

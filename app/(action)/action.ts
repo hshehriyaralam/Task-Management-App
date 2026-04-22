@@ -100,37 +100,48 @@ export default async function completeTodo(id:number , compeleteTodo : any ){
 
 
 // Add Category 
-export  async function addCategory(formData : any){
-    const supabase = await createClient()
-    const category = formData.get('category')
-    const {data : ExistingData , error : fetchError} = await supabase.from('categories').select('id')
+export async function addCategory(formData: any) {
+  const supabase = await createClient();
+  const category = formData.get("category");
 
-    if (fetchError) {
-    console.error('Error fetching categories:', fetchError)
-    return }
-
-         const {
+  const {
     data: { user },
   } = await supabase.auth.getUser();
-    
-      
-      const { data: boards } = await supabase
-        .from("boards")
-        .select("id")
-        .eq("owner_id", user?.id)
-        .limit(1)
-        .single();
 
-          const position = ExistingData?.length || 0
-        const { error } = await supabase.from('categories').insert({
-            category : category,
-            position : position,
-            board_id  : boards?.id
-          });
+  if (!user) throw new Error("No user found");
 
-    if (error) {
-    console.error('Error adding todo:', error);
-  }
+  const { data: boards } = await supabase
+    .from("boards")
+    .select("id")
+    .eq("owner_id", user.id)
+    .limit(1)
+    .single();
+
+  if (!boards) throw new Error("Board not found");
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("categories")
+    .select("id");
+
+  if (fetchError) throw fetchError;
+
+  const position = existing?.length ?? 0;
+
+  // 👇 IMPORTANT: return inserted row
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({
+      category,
+      position,
+      board_id: boards.id,
+      user_id: user.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
 }
 
 
