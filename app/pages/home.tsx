@@ -4,8 +4,11 @@ import { AddTodo, CompleteTodo, DeleteTodo,UpdateTodo } from "@/hooks/todo";
 import { AddNewCategory, DeleteCategory } from "@/hooks/category";
 import Card from "@/components/card";
 import type {  Container } from "@/type/todo";
+import { updateCategory} from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
 import { useRouter } from "next/navigation";
+
+
 // for Dnd kit
 import {
   DndContext,
@@ -80,7 +83,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
  
 
+  // for Bulk API call
   const scheduleBatchUpdate = useCallback((items: any[]) => {
+      // new data for solve drag and drop issue 
     updateQueueRef.current = Object.values(
       Object.fromEntries(
         items.map(item => [item.id, item])
@@ -100,8 +105,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       }));
   }, []);
 
-    
+  
 
+  // find active container helper function
   function findContainerId(
     itemId: UniqueIdentifier,
   ): UniqueIdentifier | undefined {
@@ -280,8 +286,11 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
             activeIndex,
             overIndex,
           );
+          // for optimistic UI
           const nextState = (() => {
           const latestContainers = [...containers];
+          // new data for solve drag and drop issue 
+          // const latestContainers = [...latestContainersRef.current];
 
           const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
             const destinationContainer = latestContainers.find( (c) => c.id === overContainerId);
@@ -309,7 +318,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           optimisticRef.current = nextState;
           setContainers(nextState);
 
-
           // DB update
           try {
             scheduleBatchUpdate(
@@ -317,8 +325,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
                 id: Number(item.id),
                 position: index,
                 category_id: Number(activeContainerId),
-              }),),
-              
+              })),
             );
           } catch (err:any) {
             console.error("DB update failed reorder", err.message);
@@ -342,6 +349,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
             newIndex = overIndex;
           }
         }
+
+        // new data for solve drag and drop issue 
         const updatedSourceItems = sourceContainer.items
           .filter(item => item.id !== active.id)
           .map((item, index) => ({
@@ -362,6 +371,13 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
 
         try {
+          // scheduleBatchUpdate([
+          //   {
+          //     id: Number(movedItem.id),
+          //     position: newIndex,
+          //     category_id: Number(overContainerId),
+          //   },
+          // ]);
           scheduleBatchUpdate([
             ...updatedSourceItems,
             ...updatedDestinationItems,
@@ -372,8 +388,11 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       }
 
       setActiveId(null);
+      // optimisticRef.current = null;
+        // new data for solve drag and drop issue 
       if (isDraggingRef.current || isSyncingRef.current) return;
       await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
+      // new data for solve drag and drop issue 
       isSyncingRef.current = false;
     },
     [containers],
@@ -381,8 +400,10 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
  
 
+  // Todo CRUD
 const handleAddTodo = useCallback(async (e: any) => {
   await AddTodo({e,setLoading,updateContainers,setShowTaskModal})
+  // reset inputs
   setTodo("");
   setCategory("");
   setModalTodo("");
@@ -495,7 +516,7 @@ const handleCompleteTodo = async (id: number) => {
     return () => {
       supabase.removeChannel(todoChannel);
     };
-  }, [containers]);
+  }, []);
 
   useEffect(() => {
   const supabase = createClient();
@@ -602,7 +623,8 @@ useEffect(() => {
         setTodo={setTodo}
         category={category}
         setCategory={setCategory}
-        isViewer={isViewer} />
+        isViewer={isViewer}
+        />
 
         {/* cards */}
         <DndContext
