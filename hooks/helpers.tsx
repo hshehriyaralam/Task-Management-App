@@ -34,11 +34,9 @@ export  const BatchUpdate = ({items,updateQueueRef,batchTimerRef}:any) => {
     clearTimeout(batchTimerRef.current);
     batchTimerRef.current = null;
   }
-
   const payload = [...updateQueueRef.current];
   if (!payload.length) return;
   updateQueueRef.current = [];
-
   try {
     await updateTodosBulk(payload);
     setTimeout(() => {

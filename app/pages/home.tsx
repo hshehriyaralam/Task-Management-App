@@ -463,11 +463,11 @@ const handleCompleteTodo = async (id: number) => {
 
 
   useEffect(() => {
-    latestTodosRef.current = todos;
-    latestCategoriesRef.current = categories;
+  latestTodosRef.current = todos;
+  latestCategoriesRef.current = categories;
 
-    setContainers(buildContainers(categories, todos));
-  }, [todos, categories]);
+  setContainers(buildContainers(categories, todos));
+}, []); // ✅ ONLY ONCE
 
   useEffect(() => {
     const supabase = createClient();
@@ -499,20 +499,26 @@ const handleCompleteTodo = async (id: number) => {
           if (eventType === "DELETE") {
             updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
           }
-
           latestTodosRef.current = updatedTodos;
-          setContainers(prev => {
-            return prev.map(container => {
-              return {
-                ...container,
-                items: container.items
-                  .filter(item => updatedTodos.some(t => t.id === item.id))
-                  .map(item =>
-                    updatedTodos.find(t => t.id === item.id)!
-                  ),
-              };
-            });
-          });
+            const latestCategories = latestCategoriesRef.current;
+            setContainers(
+              buildContainers(
+                latestCategories,
+                updatedTodos
+              )
+            );
+          // setContainers(prev => {
+          //   return prev.map(container => {
+          //     return {
+          //       ...container,
+          //       items: container.items
+          //         .filter(item => updatedTodos.some(t => t.id === item.id))
+          //         .map(item =>
+          //           updatedTodos.find(t => t.id === item.id)!
+          //         ),
+          //     };
+          //   });
+          // });
         },
       )
       .subscribe();
@@ -520,7 +526,7 @@ const handleCompleteTodo = async (id: number) => {
     return () => {
       supabase.removeChannel(todoChannel);
     };
-  }, [containers]);
+  }, []);
 
   useEffect(() => {
   const supabase = createClient();
@@ -531,7 +537,8 @@ const handleCompleteTodo = async (id: number) => {
       "postgres_changes",
       { event: "*", schema: "public", table: "categories" },
       (payload) => {
-          if (isDraggingRef.current) return;
+        if (isDraggingRef.current) return;
+          if (isSyncingRef.current) return;
         const { eventType, new: newRecord, old } = payload;
 
         let updatedCategories = [...latestCategoriesRef.current];
@@ -553,7 +560,6 @@ const handleCompleteTodo = async (id: number) => {
         }
 
         latestCategoriesRef.current = updatedCategories;
-
         setContainers(
           buildContainers(updatedCategories, latestTodosRef.current)
         );
