@@ -40,6 +40,7 @@ import { updateCategoriesBulk } from "@/hooks/bulkCategory";
 
 
 export default function TodoHome({todos, categories, accessToken,isViewer,boardId}:any) {
+  // const { todos, categories, accessToken } = useAppContext(); 
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
   const [modalTodo, setModalTodo] = useState("");
@@ -113,6 +114,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   ): UniqueIdentifier | undefined {
     const container = containers.find((container) => {
       if (container.id === itemId) return true;
+
       return container.items.some((item) => item.id === itemId);
     });
 
@@ -123,6 +125,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
     return String(id).startsWith("cat-");
   }, []);
 
+
+
+
   const TaskModalOpen = useCallback((categoryId: number) => {
     setShowTaskModal(true);
     setModalCategory(categoryId);
@@ -131,7 +136,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
     setModalTodo("");
     setNewCategory("");
   }, []);
-
 
   const handleCancelModal = useCallback(() => {
     setIsOpen(false);
@@ -193,34 +197,45 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
     (event: DragOverEvent) => {
       const { active, over } = event;
       if (!over) return;
+
       if (isCategoryDrag(active.id)) return;
+
       const activeId = active.id;
       const overId = over.id;
+
       const activeContainerId = findContainerId(activeId);
       const overContainerId = findContainerId(overId);
+
       if (!activeContainerId || !overContainerId) return;
+
       if (activeContainerId === overContainerId && activeId !== overId) {
         return;
       }
+
       if (activeContainerId === overContainerId) return;
+
       setContainers((prev) => {
         const activeContainer = prev.find((c) => c.id === activeContainerId);
         if (!activeContainer) return prev;
+
         const activeItem = activeContainer.items.find(
           (item) => item.id === activeId,
         );
         if (!activeItem) return prev;
+
         const newContainers = prev.map((container) => {
           if (container.id === activeContainerId) {
             return {
               ...container, items: container.items.filter((item) => item.id !== activeId),
             };
           }
+
           if (container.id === overContainerId) {
             if (overId === overContainerId) {
               return { ...container, items: [...container.items, activeItem],
               };
             }
+
             const overItemIndex = container.items.findIndex(
               (item) => item.id === overId,
             );
@@ -249,51 +264,63 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
+
       if (!over) {
         setActiveId(null);
         return;
       }
+
       if (isCategoryDrag(active.id)) {
         handleCategoryDragEnd(event);
         setActiveId(null);
         return;
       }
+
       const activeContainerId = findContainerId(active.id);
       const overContainerId = findContainerId(over.id);
+
       if (!activeContainerId || !overContainerId) {
         setActiveId(null);
-        return
+        return;
       }
+
       const latestContainers = [...containers];
 
       const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
       const destinationContainer = latestContainers.find((c) => c.id === overContainerId);
       if (!sourceContainer || !destinationContainer) {
         setActiveId(null);
-        return
+        return;
       }
+
       // REORDER
       if (activeContainerId === overContainerId) {
         const activeIndex = sourceContainer.items.findIndex(
           (item) => item.id === active.id,
         );
+
         const overIndex = sourceContainer.items.findIndex(
           (item) => item.id === over.id,
         );
+
         if (activeIndex !== -1 && overIndex !== -1) {
           const newItems = arrayMove(
             sourceContainer.items,
             activeIndex,
             overIndex,
           );
+
           // for optimistic UI
           const nextState = (() => {
-          const latestContainers = [...containers];
-          // new data for solve drag and drop issue 
-          // const latestContainers = [...latestContainersRef.current];
+            const latestContainers = [...containers];
 
-          const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
-            const destinationContainer = latestContainers.find( (c) => c.id === overContainerId);
+            const sourceContainer = latestContainers.find(
+              (c) => c.id === activeContainerId,
+            );
+
+            const destinationContainer = latestContainers.find(
+              (c) => c.id === overContainerId,
+            );
 
             if (!sourceContainer || !destinationContainer)
               return latestContainers;
@@ -340,7 +367,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           setActiveId(null);
           return;
         }
+
         let newIndex = destinationContainer.items.length;
+
         if (over.id !== overContainerId) {
           const overIndex = destinationContainer.items.findIndex(
             (item) => item.id === over.id,
@@ -350,37 +379,13 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           }
         }
 
-        // new data for solve drag and drop issue 
-        const updatedSourceItems = sourceContainer.items
-          .filter(item => item.id !== active.id)
-          .map((item, index) => ({
-            id: Number(item.id),
-            position: index,
-            category_id: Number(activeContainerId),
-          }));
-
-        const updatedDestinationItems = [
-          ...destinationContainer.items.slice(0, newIndex),
-          movedItem,
-          ...destinationContainer.items.slice(newIndex),
-        ].map((item, index) => ({
-          id: Number(item.id),
-          position: index,
-          category_id: Number(overContainerId),
-        }));
-
-
         try {
-          // scheduleBatchUpdate([
-          //   {
-          //     id: Number(movedItem.id),
-          //     position: newIndex,
-          //     category_id: Number(overContainerId),
-          //   },
-          // ]);
           scheduleBatchUpdate([
-            ...updatedSourceItems,
-            ...updatedDestinationItems,
+            {
+              id: Number(movedItem.id),
+              position: newIndex,
+              category_id: Number(overContainerId),
+            },
           ]);
         } catch (err) {
           console.error("DB update failed move", err);
@@ -388,12 +393,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       }
 
       setActiveId(null);
-      // optimisticRef.current = null;
-        // new data for solve drag and drop issue 
-      if (isDraggingRef.current || isSyncingRef.current) return;
+      optimisticRef.current = null;
       await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
-      // new data for solve drag and drop issue 
-      isSyncingRef.current = false;
     },
     [containers],
   );
@@ -411,8 +412,7 @@ const handleAddTodo = useCallback(async (e: any) => {
 },[])
 
   const handleUpdate = useCallback(async (e:any) => {
-  await UpdateTodo({e,latestContainersRef,setLoading,updateContainers,
-    editTodoId,editText,setIsOpen,setContainers})
+  await UpdateTodo({e,latestContainersRef,setLoading,updateContainers,editTodoId,editText,setIsOpen,setContainers})
 },[editTodoId, editText])
 
 
@@ -476,6 +476,7 @@ const handleCompleteTodo = async (id: number) => {
 
   useEffect(() => {
     const supabase = createClient();
+
     const todoChannel = supabase
       .channel("todos-realtime")
       .on(

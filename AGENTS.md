@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 category and todo to perfectly work kar rahe hai But ek bug hain isme jab main category ko re-order krun and phir jo category re-order hui hai usme agar me us card me ke kisi bh todo kuch action perform krun to card ki position chnage ho rhi wo again re-order ho raha hai kuch glitch issue hai isme ya koi refresnce ka issue hai
 
 
@@ -45,3 +46,6 @@ const handleCategoryDragEnd = useCallback(
   },
   []
 );
+=======
+2  bar email bhejne par ek bar jaa rhi hai
+>>>>>>> parent of 822411f (solve todo bulk issue)
