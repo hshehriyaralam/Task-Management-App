@@ -1,524 +1,748 @@
-[4/23, 10:47 AM] .: Theek hai — ab tumhara code clearly dekh ke 2 separate bugs identify ho gaye hain. Dono ka root different hai, isliye dono ka fix bhi alag hoga.
-Main seedha breakdown karta hoon 👇
-🧨 ISSUE 1: Realtime dusre browser me reflect nahi ho raha
-🔴 ROOT CAUSE
-Ye line 👇
-TypeScript
-if (isDraggingRef.current) return;
-if (isSyncingRef.current) return;
-👉 Problem:
-jab tum drag karte ho:
-TypeScript
-isDraggingRef.current = true;
-isSyncingRef.current = true;
-lekin drag ke baad tum isDraggingRef ko reset hi nahi kar rahe ❌
-💥 Result:
-realtime listener permanently block ho jata hai
-dusre browser se updates aate hain → ignore ho jate hain
-✅ FIX (CRITICAL)
-handleDragEnd ke end me add karo:
-TypeScript
-setActiveId(null);
+'use client'
+import { updateTodosBulk } from "./bulkTodo";
 
-isDraggingRef.current = false;   // ✅ MUST
-isSyncingRef.current = false;    // ✅ MUST
-
-await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
-⚠️ EXTRA FIX
-Category drag me bhi same karo:
-TypeScript
-const handleCategoryDragEnd = async (...) => {
-  ...
-
-  isDraggingRef.current = false;
-  isSyncingRef.current = false;
-};
-🧨 ISSUE 2: Multiple drag me kuch todos DB me update nahi ho rahe
-🔴 ROOT CAUSE
-Ye tumhara function 👇
-TypeScript
-updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    items.map(item => [item.id, item])
-  )
-);
-👉 Problem:
-tum queue overwrite kar rahe ho
-har drag pe purani updates replace ho jati hain ❌
-💥 Example:
-1st drag → item A
-2nd drag → item B
-3rd drag → item C
-👉 final queue me sirf C reh jata hai ❌
-👉 A aur B lost ❌
-✅ FIX (QUEUE MERGE karo, overwrite nahi)
-Replace this:
-TypeScript
-updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    items.map(item => [item.id, item])
-  )
-);
-✅ with this:
-TypeScript
-const existing = updateQueueRef.current;
-
-const merged = [
-  ...existing,
-  ...items
-];
-
-updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    merged.map(item => [item.id, item]) // dedupe by id
-  )
-);
-🧠 WHY this works
-✔ old updates preserve honge
-✔ new updates add honge
-✔ duplicate IDs overwrite honge (correct behavior)
-
-
-
-🧨 ISSUE 3 (Hidden but VERY IMPORTANT)
-Tum ye kar rahe ho:
-TypeScript
-scheduleBatchUpdate([{
-  id,
-  position,
-  category_id
-}]);
-👉 jab item move hota hai across containers:
-❌ tum sirf moved item update kar rahe ho
-💥 baqi items ki position wrong ho jati hai DB me
-✅ FIX
-Cross-container move me FULL update bhejo:
-TypeScript
-const updatedSourceItems = sourceContainer.items
-  .filter(item => item.id !== active.id)
-  .map((item, index) => ({
-    id: Number(item.id),
-    position: index,
-    category_id: Number(activeContainerId),
-  }));
-
-const updatedDestinationItems = [
-  ...destinationContainer.items.slice(0, newIndex),
-  movedItem,
-  ...destinationContainer.items.slice(newIndex),
-].map((item, index) => ({
-  id: Number(item.id),
-  position: index,
-  category_id: Number(overContainerId),
-}));
-
-scheduleBatchUpdate([
-  ...updatedSourceItems,
-  ...updatedDestinationItems,
-]);
-🧨 ISSUE 4 (Realtime lag ya miss)
-Ensure Supabase realtime enabled hai:
-👉 DB me:
-replication enabled ho
-table todos aur categories realtime me added ho
-✅ FINAL RESULT (after fixes)
-✔ 2 browser me realtime perfect sync
-✔ drag ke baad updates block nahi honge
-✔ koi todo miss nahi hoga
-✔ refresh pe revert nahi hoga
-✔ batch update stable ho jayega
-
-
-
-
-
-
-
-
-
-
-
-
-[4/23, 10:54 AM] .: Seedhi baat: tumhara issue ek nahi, 3 layered problems ka combo hai — isi liye fix karne ke baad bhi glitch aa raha hai.
-Main clearly breakdown karta hoon + practical fixes deta hoon (jo real-world Trello jese apps me use hote hain 👇)
-🚨 ROOT PROBLEMS
-1. ❌ Race condition (Realtime vs Optimistic UI)
-Tum:
-drag → optimistic UI update
-DB update (batch)
-realtime event trigger
-phir UI dobara overwrite
-👉 Result:
-UI flip / revert / jump
-2. ❌ Batch update drop ho raha hai
-Tumhara:
-TypeScript
-scheduleBatchUpdate(items)
-BUT:
-rapid drag me multiple calls aa rahi hain
-updateQueueRef overwrite ho raha hai
-kuch items DB tak ja hi nahi rahe
-👉 isi liye:
-“3rd ya 4th todo update nahi hota”
-3. ❌ Viewer page stale state use kar raha hai
-Viewer side:
-TypeScript
-latestCategoriesRef.current
-latestTodosRef.current
-BUT:
-reorder ke baad correct sequence maintain nahi ho raha
-realtime aata hai → rebuildContainers → old order aa jata
-4. ❌ isSyncingRef misuse
-Tumne:
-TypeScript
-isSyncingRef.current = true;
-BUT:
-kab false ho raha? consistently nahi
-realtime events block ho ja rahe
-✅ FINAL WORKING STRATEGY (Production Level)
-Ab simple fixes nahi — proper architecture fix chahiye 👇
-✅ FIX 1: Batch overwrite nahi — MERGE karo
-❌ current:
-TypeScript
-updateQueueRef.current = Object.values(...)
-✅ correct:
-TypeScript
-updateQueueRef.current = [
-  ...updateQueueRef.current,
-  ...items
-];
-
-// dedupe
-updateQueueRef.current = Object.values(
-  Object.fromEntries(
-    updateQueueRef.current.map(item => [item.id, item])
-  )
-);
-👉 isse koi todo miss nahi hoga
-✅ FIX 2: flushBatch ALWAYS after drag
-Tum abhi condition laga rahe ho:
-TypeScript
-if (isDraggingRef.current || isSyncingRef.current) return;
-❌ galat
-✅ replace with:
-TypeScript
-await flushBatch({ batchTimerRef, updateQueueRef, isSyncingRef });
-
-isDraggingRef.current = false;
-isSyncingRef.current = false;
-✅ FIX 3: Realtime overwrite na kare (CRITICAL)
-Realtime me ye galti hai:
-TypeScript
-setContainers(buildContainers(...))
-❌ ye pura UI overwrite kar deta hai
-✅ Replace with SMART MERGE:
-TypeScript
-setContainers(prev => {
-  return prev.map(container => {
-    return {
-      ...container,
-      items: container.items
-        .map(item =>
-          updatedTodos.find(t => t.id === item.id) || item
-        )
-    };
-  });
-});
-👉 container order SAFE rahega
-✅ FIX 4: Category realtime me reorder preserve karo
-❌ current:
-TypeScript
-setContainers(buildContainers(updatedCategories, latestTodosRef.current))
-✅ correct:
-TypeScript
-setContainers(prev => {
-  return updatedCategories
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-    .map(cat => {
-      const existing = prev.find(c => c.id === cat.id);
-
-      return {
-        id: cat.id,
-        title: cat.category,
-        items: existing?.items || []
-      };
-    });
-});
-👉 todos untouched rahenge
-✅ FIX 5: isSyncingRef correctly handle karo
-Drag start:
-TypeScript
-isDraggingRef.current = true;
-isSyncingRef.current = true;
-Drag end:
-TypeScript
-await flushBatch(...)
-
-isDraggingRef.current = false;
-isSyncingRef.current = false;
-✅ FIX 6: Viewer issue (MOST IMPORTANT)
-Viewer me problem ye hai:
-👉 tum server props (todos, categories) use kar rahe ho
-👉 realtime ke baad bhi initial props overwrite ho jate
-✅ Solution:
-❌ REMOVE this:
-TypeScript
-useEffect(() => {
-  setContainers(buildContainers(categories, todos));
-}, [todos, categories]);
-✅ Replace with:
-TypeScript
-useEffect(() => {
-  if (containers.length === 0) {
-    setContainers(buildContainers(categories, todos));
+// ✅ FIX: BatchUpdate ab sirf timer manage karta hai
+// Queue management scheduleBatchUpdate mein hoti hai
+// Pehle: BatchUpdate ko `items` pass hota tha — merged queue nahi
+// Iska result: deduplication fail, kuch updates overwrite ho jaate the
+export const BatchUpdate = ({ updateQueueRef, batchTimerRef, isSyncingRef }: any) => {
+  if (batchTimerRef.current) {
+    clearTimeout(batchTimerRef.current);
   }
-}, []);
-👉 sirf first mount pe load hoga
-🎯 FINAL RESULT
-After all fixes:
-✅ multi-browser realtime sync working
-✅ no missing todos
-✅ no revert after action
-✅ smooth drag/drop
-✅ Trello-level behavior
-🔥 Bonus (pro-level improvement)
-Agar aur stable chahte ho:
-👉 har drag ke baad ek version ya timestamp store karo
-👉 realtime me outdated events ignore karo
-⚡ If still issue aaye
-Phir 3 advanced debugging karna:
-console log:
-TypeScript
-console.log("BATCH:", updateQueueRef.current)
-Supabase logs check karo (RPC miss ho raha)
-Network tab → check failed updates
-Agar chaho to main tumhare liye �⁠fully clean architecture version likh deta hoon (Redux/ Zustand + realtime safe) jo bilkul Trello jaisa behave kare 👍
 
+  batchTimerRef.current = setTimeout(async () => {
+    const payload = [...updateQueueRef.current];
+    if (payload.length === 0) {
+      if (isSyncingRef) isSyncingRef.current = false;
+      return;
+    }
 
+    updateQueueRef.current = [];
 
-
-
-
-
-
-
-
-[4/23, 11:16 AM] .: Theek hai — ab main tumhe clean, production-level architecture de raha hoon jo tumhare current bugs (revert, missing updates, realtime sync) sab solve karega. Ye approach Trello jaisi apps follow karti hain.
-Main isko simple rakh raha hoon: Zustand + optimistic updates + safe realtime merge
-🧠 CORE IDEA
-Single source of truth:
-👉 ❌ React local state (useState everywhere)
-👉 ✅ Central store (Zustand)
-🏗️ 1. STORE (Zustand)
-TypeScript
-// store/useBoardStore.ts
-import { create } from "zustand";
-
-type Todo = {
-  id: number;
-  task: string;
-  position: number;
-  category_id: number;
+    try {
+      await updateTodosBulk(payload);
+    } catch (err) {
+      console.error("Batch update failed", err);
+      // Rollback: queue mein wapas daalo
+      updateQueueRef.current.push(...payload);
+    } finally {
+      // ✅ Guarantee: hamesha reset hogi
+      if (isSyncingRef) {
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 300);
+      }
+    }
+  }, 400);
 };
 
-type Category = {
-  id: number;
-  category: string;
-  position: number;
+export const flushBatch = async ({ batchTimerRef, updateQueueRef, isSyncingRef }: any) => {
+  if (batchTimerRef.current) {
+    clearTimeout(batchTimerRef.current);
+    batchTimerRef.current = null;
+  }
+
+  const payload = [...updateQueueRef.current];
+  updateQueueRef.current = [];
+
+  if (!payload.length) {
+    // ✅ Empty ho toh bhi reset
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 300);
+    return;
+  }
+
+  try {
+    await updateTodosBulk(payload);
+  } catch (err) {
+    console.error("flushBatch failed", err);
+  } finally {
+    // ✅ Guarantee reset — try/catch se bahar
+    setTimeout(() => {
+      isSyncingRef.current = false;
+    }, 300);
+  }
 };
 
-type Container = {
-  id: number;
-  title: string;
-  items: Todo[];
-};
 
-type Store = {
-  containers: Container[];
 
-  setInitialData: (categories: Category[], todos: Todo[]) => void;
 
-  reorderCategories: (newOrder: Container[]) => void;
 
-  updateTodos: (todos: Todo[]) => void;
 
-  moveTodo: (
-    todoId: number,
-    sourceCat: number,
-    destCat: number,
-    newIndex: number
-  ) => void;
-};
 
-export const useBoardStore = create<Store>((set, get) => ({
-  containers: [],
+"use client";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { AddTodo, CompleteTodo, DeleteTodo, UpdateTodo } from "@/hooks/todo";
+import { AddNewCategory, DeleteCategory } from "@/hooks/category";
+import Card from "@/components/card";
+import type { Container } from "@/type/todo";
+import { createClient } from "@/app/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
-  setInitialData: (categories, todos) => {
-    const containers = categories
-      .sort((a, b) => a.position - b.position)
+import {
+  DndContext,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  UniqueIdentifier,
+  DragOverEvent,
+  rectIntersection,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import TodoOverlay from "@/components/todoOverlay";
+import CardOverlay from "@/components/cardOverlay";
+import { BatchUpdate, flushBatch } from "@/hooks/helpers";
+import Todoform from "@/components/form";
+import AddCategoryModal from "@/components/addCategoryModal";
+import EditTodoPopUp from "@/components/editTodoPopUp";
+import AddTodoModal from "@/components/addTodoModal";
+import { updateCategoriesBulk } from "@/hooks/bulkCategory";
+
+export default function TodoHome({ todos, categories, accessToken, isViewer, boardId }: any) {
+  const [todo, setTodo] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [modalTodo, setModalTodo] = useState("");
+  const [modalCategory, setModalCategory] = useState<number | null>(null);
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [editTodoId, setEditTodoId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [containers, setContainers] = useState<Container[]>([]);
+  const isDraggingRef = useRef(false);
+  const containersRef = useRef(containers);
+  const isSyncingRef = useRef(false);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const latestContainersRef = useRef<Container[]>([]);
+  const optimisticRef = useRef<Container[] | null>(null);
+  const updateQueueRef = useRef<any[]>([]);
+  const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const latestTodosRef = useRef(todos);
+  const latestCategoriesRef = useRef(categories);
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  const updateContainers = (updater: (prev: Container[]) => Container[]) => {
+    setContainers((prev) => {
+      const next = updater(prev);
+      latestContainersRef.current = next;
+      return next;
+    });
+  };
+
+  const categoryIds = useMemo(
+    () => containers.map((c) => `cat-${c.id}`),
+    [containers]
+  );
+
+  // ✅ FIX Bug 1: Queue management yahan hoti hai, BatchUpdate sirf timer
+  // Pehle: BatchUpdate ko `items` pass hota tha — wo apna alag dedup karta tha
+  // merged queue ignore ho jaati thi → kuch updates DB mein nahi jaate the
+  const scheduleBatchUpdate = useCallback((items: any[]) => {
+    // Step 1: existing queue + naye items merge karo
+    const merged = [...updateQueueRef.current, ...items];
+
+    // Step 2: id ke basis pe deduplicate — latest value rakhte hain
+    updateQueueRef.current = Object.values(
+      Object.fromEntries(merged.map((item) => [item.id, item]))
+    );
+
+    // Step 3: BatchUpdate sirf timer set karta hai, queue se read karta hai
+    BatchUpdate({ updateQueueRef, batchTimerRef, isSyncingRef });
+  }, []);
+
+  const buildContainers = useCallback((cats: any[], todosArr: any[]) => {
+    return cats
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
       .map((cat) => ({
         id: cat.id,
         title: cat.category,
-        items: todos
+        items: todosArr
           .filter((t) => t.category_id === cat.id)
-          .sort((a, b) => a.position - b.position),
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
       }));
+  }, []);
 
-    set({ containers });
-  },
-
-  reorderCategories: (newOrder) => {
-    set({ containers: newOrder });
-  },
-
-  updateTodos: (updatedTodos) => {
-    set((state) => ({
-      containers: state.containers.map((container) => ({
-        ...container,
-        items: container.items.map(
-          (item) =>
-            updatedTodos.find((t) => t.id === item.id) || item
-        ),
-      })),
-    }));
-  },
-
-  moveTodo: (todoId, sourceCat, destCat, newIndex) => {
-    const containers = [...get().containers];
-
-    const source = containers.find((c) => c.id === sourceCat);
-    const dest = containers.find((c) => c.id === destCat);
-
-    if (!source || !dest) return;
-
-    const item = source.items.find((t) => t.id === todoId);
-    if (!item) return;
-
-    source.items = source.items.filter((t) => t.id !== todoId);
-
-    dest.items.splice(newIndex, 0, {
-      ...item,
-      category_id: destCat,
+  function findContainerId(itemId: UniqueIdentifier): UniqueIdentifier | undefined {
+    const container = containers.find((c) => {
+      if (c.id === itemId) return true;
+      return c.items.some((item) => item.id === itemId);
     });
+    return container?.id;
+  }
 
-    set({ containers });
-  },
-}));
-🎯 2. INITIAL LOAD (ONLY ONCE)
-TypeScript
-const setInitialData = useBoardStore(s => s.setInitialData);
+  const isCategoryDrag = useCallback((id: UniqueIdentifier) => {
+    return String(id).startsWith("cat-");
+  }, []);
 
-useEffect(() => {
-  setInitialData(categories, todos);
-}, []);
-❌ dobara kabhi setContainers(buildContainers()) mat karna
-🔥 3. CATEGORY DRAG (Optimistic + DB)
-TypeScript
-const containers = useBoardStore(s => s.containers);
-const reorderCategories = useBoardStore(s => s.reorderCategories);
+  // ─── Modal Handlers ──────────────────────────────────────────────────────────
 
-const handleCategoryDragEnd = async (event) => {
-  const { active, over } = event;
-  if (!over || active.id === over.id) return;
+  const TaskModalOpen = useCallback((categoryId: number) => {
+    setShowTaskModal(true);
+    setModalCategory(categoryId);
+    setTodo("");
+    setCategory("");
+    setModalTodo("");
+    setNewCategory("");
+  }, []);
 
-  const oldIndex = containers.findIndex(c => `cat-${c.id}` === active.id);
-  const newIndex = containers.findIndex(c => `cat-${c.id}` === over.id);
+  const handleCancelModal = useCallback(() => {
+    setIsOpen(false);
+    setShowModal(false);
+    setShowTaskModal(false);
+    setTodo("");
+    setCategory("");
+    setModalCategory(null);
+    setModalTodo("");
+    setNewCategory("");
+    setEditText("");
+    setEditTodoId(null);
+  }, []);
 
-  const reordered = arrayMove(containers, oldIndex, newIndex);
+  // ─── Drag Handlers ───────────────────────────────────────────────────────────
 
-  // ✅ instant UI
-  reorderCategories(reordered);
-
-  // ✅ DB update
-  await updateCategoriesBulk(
-    reordered.map((c, i) => ({
-      id: c.id,
-      position: i
-    }))
+  const sensor = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
-};
-⚡ 4. TODO DRAG (NO MISSING ISSUE)
-TypeScript
-const moveTodo = useBoardStore(s => s.moveTodo);
 
-const handleDragEnd = async (event) => {
-  const { active, over } = event;
-  if (!over) return;
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id);
+    isDraggingRef.current = true;
+    isSyncingRef.current = true;
+  }, []);
 
-  const source = findContainerId(active.id);
-  const dest = findContainerId(over.id);
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+      if (isCategoryDrag(active.id)) return;
 
-  if (!source || !dest) return;
+      const activeId = active.id;
+      const overId = over.id;
+      const activeContainerId = findContainerId(activeId);
+      const overContainerId = findContainerId(overId);
 
-  const newIndex = ... // calculate
+      if (!activeContainerId || !overContainerId) return;
+      if (activeContainerId === overContainerId && activeId !== overId) return;
+      if (activeContainerId === overContainerId) return;
 
-  // ✅ optimistic
-  moveTodo(Number(active.id), Number(source), Number(dest), newIndex);
+      setContainers((prev) => {
+        const activeContainer = prev.find((c) => c.id === activeContainerId);
+        if (!activeContainer) return prev;
+        const activeItem = activeContainer.items.find((item) => item.id === activeId);
+        if (!activeItem) return prev;
 
-  // ✅ ALWAYS send FULL container updates
-  const updatedItems = getAllTodosFromStore(); // helper
+        return prev.map((container) => {
+          if (container.id === activeContainerId) {
+            return {
+              ...container,
+              items: container.items.filter((item) => item.id !== activeId),
+            };
+          }
+          if (container.id === overContainerId) {
+            if (overId === overContainerId) {
+              return { ...container, items: [...container.items, activeItem] };
+            }
+            const overItemIndex = container.items.findIndex((item) => item.id === overId);
+            if (overItemIndex !== -1) {
+              return {
+                ...container,
+                items: [
+                  ...container.items.slice(0, overItemIndex + 1),
+                  activeItem,
+                  ...container.items.slice(overItemIndex + 1),
+                ],
+              };
+            }
+          }
+          return container;
+        });
+      });
+    },
+    [containers]
+  );
 
-  await updateTodosBulk(updatedItems);
-};
-👉 IMPORTANT:
-partial update mat bhejo → full container positions bhejo
-🔁 5. REALTIME FIX (MOST IMPORTANT)
-TODOS realtime
-TypeScript
-useEffect(() => {
-  const channel = supabase
-    .channel("todos")
-    .on("postgres_changes", { event: "*", table: "todos" }, (payload) => {
+  const handleCategoryDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const activeRaw = String(active.id).replace("cat-", "");
+      const overRaw = String(over.id).replace("cat-", "");
+      if (!String(over.id).startsWith("cat-")) return;
 
-      if (isSyncingRef.current) return;
+      const oldIndex = containers.findIndex((c) => String(c.id) === activeRaw);
+      const newIndex = containers.findIndex((c) => String(c.id) === overRaw);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-      const updatedTodos = process(payload);
+      const reordered = arrayMove(containers, oldIndex, newIndex);
+      setContainers(reordered);
+      latestContainersRef.current = reordered;
 
-      useBoardStore.getState().updateTodos(updatedTodos);
-    })
-    .subscribe();
+      // ✅ FIX Bug 2: latestCategoriesRef bhi reordered positions ke saath update karo
+      // Pehle nahi tha — todo realtime event pe buildContainers(latestCategoriesRef.current)
+      // purani positions se rebuild karta tha → cards revert ho jaate the
+      const updatedCategories = latestCategoriesRef.current.map((cat: any) => {
+        const newPos = reordered.findIndex((c) => Number(c.id) === Number(cat.id));
+        return newPos !== -1 ? { ...cat, position: newPos } : cat;
+      });
+      latestCategoriesRef.current = updatedCategories;
 
-  return () => supabase.removeChannel(channel);
-}, []);
-CATEGORY realtime
-TypeScript
-useEffect(() => {
-  const channel = supabase
-    .channel("categories")
-    .on("postgres_changes", { event: "*", table: "categories" }, (payload) => {
+      try {
+        const items = reordered.map((cat, index) => ({
+          id: Number(cat.id),
+          position: index,
+        }));
+        await updateCategoriesBulk(items);
+      } catch (err) {
+        console.error("Category bulk update failed", JSON.stringify(err));
+      } finally {
+        isDraggingRef.current = false;
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 300);
+      }
+    },
+    [containers]
+  );
 
-      if (isSyncingRef.current) return;
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
 
-      const updatedCategories = process(payload);
+      isDraggingRef.current = false;
 
-      const todos = getTodosFromStore();
+      if (!over) {
+        setActiveId(null);
+        isSyncingRef.current = false;
+        return;
+      }
 
-      useBoardStore.getState().setInitialData(updatedCategories, todos);
-    })
-    .subscribe();
+      if (isCategoryDrag(active.id)) {
+        handleCategoryDragEnd(event);
+        setActiveId(null);
+        return;
+      }
 
-  return () => supabase.removeChannel(channel);
-}, []);
-🚨 GOLDEN RULES (yaad rakhna)
-❌ NEVER
-setContainers(buildContainers()) repeatedly
-partial DB updates
-overwrite UI from realtime
-✅ ALWAYS
-optimistic update first
-full DB sync
-realtime = merge, not replace
-🎯 RESULT
-Is architecture ke baad:
-✅ 2 browser sync perfect
-✅ no revert issue
-✅ no missing todos
-✅ smooth drag drop
-✅ viewer = owner same behavior
-💬 Final Advice
-Tumhara project ab junior level se mid/senior level pe shift ho raha hai —
-ab simple state management se kaam nahi chalega.
-Agar chaho next step:
-👉 �⁠main tumhe Supabase RPC + SQL function (bulk reorder perfect) bhi likh deta hoon
-👉 ya **�⁠Zustand + middleware + undo/redo system** bhi bana dete hain
-Bas bolo 👍
+      const activeContainerId = findContainerId(active.id);
+      const overContainerId = findContainerId(over.id);
+
+      if (!activeContainerId || !overContainerId) {
+        setActiveId(null);
+        isSyncingRef.current = false;
+        return;
+      }
+
+      const currentContainers = [...containers];
+      const sourceContainer = currentContainers.find((c) => c.id === activeContainerId);
+      const destinationContainer = currentContainers.find((c) => c.id === overContainerId);
+
+      if (!sourceContainer || !destinationContainer) {
+        setActiveId(null);
+        isSyncingRef.current = false;
+        return;
+      }
+
+      // Same container — reorder
+      if (activeContainerId === overContainerId) {
+        const activeIndex = sourceContainer.items.findIndex((item) => item.id === active.id);
+        const overIndex = sourceContainer.items.findIndex((item) => item.id === over.id);
+
+        if (activeIndex !== -1 && overIndex !== -1) {
+          const newItems = arrayMove(sourceContainer.items, activeIndex, overIndex);
+          const nextState = currentContainers.map((c) =>
+            c.id === activeContainerId ? { ...c, items: newItems } : c
+          );
+
+          optimisticRef.current = nextState;
+          setContainers(nextState);
+          latestContainersRef.current = nextState;
+
+          scheduleBatchUpdate(
+            newItems.map((item, index) => ({
+              id: Number(item.id),
+              position: index,
+              category_id: Number(activeContainerId),
+            }))
+          );
+        } else {
+          isSyncingRef.current = false;
+        }
+      } else {
+        // Different container — move
+        const movedItem = sourceContainer.items.find((item) => item.id === active.id);
+        if (!movedItem) {
+          setActiveId(null);
+          isSyncingRef.current = false;
+          return;
+        }
+
+        let newIndex = destinationContainer.items.length;
+        if (over.id !== overContainerId) {
+          const overIndex = destinationContainer.items.findIndex(
+            (item) => item.id === over.id
+          );
+          if (overIndex !== -1) newIndex = overIndex;
+        }
+
+        const updatedSourceItems = sourceContainer.items
+          .filter((item) => item.id !== active.id)
+          .map((item, index) => ({
+            id: Number(item.id),
+            position: index,
+            category_id: Number(activeContainerId),
+          }));
+
+        const updatedDestinationItems = [
+          ...destinationContainer.items.slice(0, newIndex),
+          movedItem,
+          ...destinationContainer.items.slice(newIndex),
+        ].map((item, index) => ({
+          id: Number(item.id),
+          position: index,
+          category_id: Number(overContainerId),
+        }));
+
+        scheduleBatchUpdate([...updatedSourceItems, ...updatedDestinationItems]);
+      }
+
+      setActiveId(null);
+      optimisticRef.current = null;
+      await flushBatch({ batchTimerRef, updateQueueRef, isSyncingRef });
+    },
+    [containers]
+  );
+
+  // ─── Todo CRUD ───────────────────────────────────────────────────────────────
+
+  const handleAddTodo = useCallback(async (e: any) => {
+    await AddTodo({ e, setLoading, updateContainers, setShowTaskModal });
+    setTodo("");
+    setCategory("");
+    setModalTodo("");
+  }, []);
+
+  const handleUpdate = useCallback(
+    async (e: any) => {
+      await UpdateTodo({
+        e,
+        latestContainersRef,
+        setLoading,
+        updateContainers,
+        editTodoId,
+        editText,
+        setIsOpen,
+        setContainers,
+      });
+    },
+    [editTodoId, editText]
+  );
+
+  const handleDelete = useCallback(async (id: number) => {
+    await DeleteTodo({ id, updateContainers, latestContainersRef, setContainers });
+  }, []);
+
+  const handleCompleteTodo = useCallback(async (id: number) => {
+    await CompleteTodo({ id, latestContainersRef, updateContainers, setContainers });
+  }, []);
+
+  // ─── Category CRUD ───────────────────────────────────────────────────────────
+
+  const handleAddCategory = useCallback(async (e: any) => {
+    setLoading(true);
+    await AddNewCategory({ e, updateContainers });
+    setNewCategory("");
+    setLoading(false);
+    setShowModal(false);
+  }, []);
+
+  // ✅ refs use karo — stale closure se bachao
+  const handleDeleteCategory = useCallback(async (catId: number) => {
+    await DeleteCategory({
+      catId,
+      categories: latestCategoriesRef.current,
+      containers: latestContainersRef.current,
+      updateContainers,
+      setContainers,
+    });
+  }, []);
+
+  const handleEdit = useCallback((todo: any) => {
+    setIsOpen(true);
+    setEditTodoId(todo.id);
+    setEditText(todo.task);
+    setTodo("");
+  }, []);
+
+  // ─── Overlay Helpers ─────────────────────────────────────────────────────────
+
+  const getActiveItem = () => {
+    for (const container of containers) {
+      const item = container.items.find((item) => item.id === activeId);
+      if (item) return item;
+    }
+    return null;
+  };
+
+  const getActiveCard = () => {
+    if (!activeId) return null;
+    const rawId = String(activeId).replace("cat-", "");
+    return containers.find((c) => String(c.id) === rawId) || null;
+  };
+
+  // ─── Effects ─────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    latestTodosRef.current = todos;
+    latestCategoriesRef.current = categories;
+    setContainers(buildContainers(categories, todos));
+  }, [todos, categories]);
+
+  // ✅ [] dependency — containers change pe re-subscribe nahi hoga
+  useEffect(() => {
+    const supabase = createClient();
+
+    const setup = async () => {
+      let filter: string;
+      if (boardId) {
+        filter = `board_id=eq.${boardId}`;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        filter = `user_id=eq.${user.id}`;
+      }
+
+      return supabase
+        .channel(`todos-rt-${boardId ?? "owner"}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "todos", filter },
+          (payload) => {
+            if (isDraggingRef.current) return;
+            if (isSyncingRef.current) return;
+
+            const { eventType, new: newRecord, old } = payload;
+            let updatedTodos = [...latestTodosRef.current];
+
+            if (eventType === "INSERT") {
+              if (!updatedTodos.find((t) => t.id === newRecord.id)) {
+                updatedTodos.push(newRecord);
+              }
+            }
+            if (eventType === "UPDATE") {
+              updatedTodos = updatedTodos.map((t) =>
+                t.id === newRecord.id ? newRecord : t
+              );
+            }
+            if (eventType === "DELETE") {
+              updatedTodos = updatedTodos.filter((t) => t.id !== old.id);
+            }
+
+            latestTodosRef.current = updatedTodos;
+            // ✅ latestCategoriesRef.current mein updated positions hain (card reorder ke baad bhi)
+            setContainers(buildContainers(latestCategoriesRef.current, updatedTodos));
+          }
+        )
+        .subscribe();
+    };
+
+    let ch: any;
+    setup().then((c) => { ch = c; });
+    return () => { if (ch) supabase.removeChannel(ch); };
+  }, [boardId]);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const setup = async () => {
+      let filter: string;
+      if (boardId) {
+        filter = `board_id=eq.${boardId}`;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        filter = `user_id=eq.${user.id}`;
+      }
+
+      return supabase
+        .channel(`categories-rt-${boardId ?? "owner"}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "categories", filter },
+          (payload) => {
+            if (isDraggingRef.current) return;
+
+            const { eventType, new: newRecord, old } = payload;
+            let updatedCategories = [...latestCategoriesRef.current];
+
+            if (eventType === "INSERT") {
+              if (!updatedCategories.find((c) => c.id === newRecord.id)) {
+                updatedCategories.push(newRecord);
+              }
+            }
+            if (eventType === "UPDATE") {
+              updatedCategories = updatedCategories.map((c) =>
+                c.id === newRecord.id ? newRecord : c
+              );
+            }
+            if (eventType === "DELETE") {
+              updatedCategories = updatedCategories.filter((c) => c.id !== old.id);
+            }
+
+            latestCategoriesRef.current = updatedCategories;
+            setContainers(buildContainers(updatedCategories, latestTodosRef.current));
+          }
+        )
+        .subscribe();
+    };
+
+    let ch: any;
+    setup().then((c) => { ch = c; });
+    return () => { if (ch) supabase.removeChannel(ch); };
+  }, [boardId]);
+
+  useEffect(() => {
+    containersRef.current = containers;
+  }, [containers]);
+
+  useEffect(() => {
+    return () => {
+      if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+      if (updateQueueRef.current.length > 0) {
+        flushBatch({ batchTimerRef, updateQueueRef, isSyncingRef });
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) router.push("/login");
+  }, [accessToken, router]);
+
+  // Owner ka independent fetch
+  useEffect(() => {
+    if (boardId) return;
+
+    const fetchData = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: t } = await supabase.from("todos").select("*").eq("user_id", user.id);
+      const { data: c } = await supabase.from("categories").select("*").eq("user_id", user.id);
+
+      setContainers(buildContainers(c || [], t || []));
+    };
+
+    fetchData();
+  }, [boardId]);
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <section>
+      <div>
+        <Todoform
+          handleAddTodo={handleAddTodo}
+          containers={containers}
+          loading={loading}
+          setShowModal={setShowModal}
+          todo={todo}
+          setTodo={setTodo}
+          category={category}
+          setCategory={setCategory}
+          isViewer={isViewer}
+        />
+
+        <DndContext
+          sensors={isViewer ? [] : sensor}
+          collisionDetection={rectIntersection}
+          onDragStart={isViewer ? undefined : handleDragStart}
+          onDragOver={isViewer ? undefined : handleDragOver}
+          onDragEnd={isViewer ? undefined : handleDragEnd}
+        >
+          <SortableContext items={categoryIds} strategy={horizontalListSortingStrategy}>
+            <div className="flex gap-5 overflow-x-auto custom-scrollbar">
+              {containers?.map((cat, index) => (
+                <Card
+                  key={`container-${cat.id}`}
+                  cat={cat}
+                  todo={cat.items}
+                  index={index}
+                  categories={containers}
+                  handleDelete={handleDelete}
+                  handleEdit={handleEdit}
+                  TaskModalOpen={TaskModalOpen}
+                  handleDeleteCategory={handleDeleteCategory}
+                  handleCompleteTodo={handleCompleteTodo}
+                  isViewer={isViewer}
+                />
+              ))}
+            </div>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeId && isCategoryDrag(activeId) ? (
+              <CardOverlay cat={getActiveCard()} todo={getActiveCard()?.items || []} />
+            ) : activeId ? (
+              <TodoOverlay>{getActiveItem()?.task}</TodoOverlay>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {showModal && (
+        <AddCategoryModal
+          handleCancelModal={handleCancelModal}
+          handleAddCategory={handleAddCategory}
+          newCategory={newCategory}
+          setNewCategory={setNewCategory}
+          loading={loading}
+        />
+      )}
+
+      {isOpen && (
+        <EditTodoPopUp
+          handleCancelModal={handleCancelModal}
+          handleUpdate={handleUpdate}
+          editText={editText}
+          setEditText={setEditText}
+          loading={loading}
+        />
+      )}
+
+      {showTaskModal && (
+        <AddTodoModal
+          handleCancelModal={handleCancelModal}
+          handleAddTodo={handleAddTodo}
+          modalTodo={modalTodo}
+          setModalTodo={setModalTodo}
+          modalCategory={modalCategory}
+          loading={loading}
+        />
+      )}
+    </section>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

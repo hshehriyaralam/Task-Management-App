@@ -67,6 +67,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
 
 
+
+
   const updateContainers = (updater: (prev: Container[]) => Container[]) => {
   setContainers(prev => {
     const next = updater(prev);
@@ -182,8 +184,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
         id: Number(cat.id),
         position: index,
       }));
-      // isDraggingRef.current = false;   
-      // isSyncingRef.current = false; 
+      isDraggingRef.current = false;   
+      isSyncingRef.current = false; 
       await updateCategoriesBulk(items);
     } catch (err) {
       console.error("Category bulk update failed", JSON.stringify(err));
@@ -191,6 +193,11 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
     },
     [containers],
   );
+
+
+
+
+
 
   const sensor = useSensors(
     useSensor(PointerSensor, {
@@ -411,6 +418,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
     [containers],
   );
 
+
+
+
  
 
   // Todo CRUD
@@ -485,7 +495,6 @@ const handleCompleteTodo = async (id: number) => {
 
   setContainers(buildContainers(categories, todos));
 }, [todos,categories]);
-
 
 
 
@@ -586,17 +595,17 @@ const handleCompleteTodo = async (id: number) => {
 }, [containers]);
 
 
- useEffect(() => {
-  return () => {
-    if (batchTimerRef.current) {
-      clearTimeout(batchTimerRef.current);
-    }
-    if (updateQueueRef.current.length > 0) {
-      flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
+//  useEffect(() => {
+//   return () => {
+//     if (batchTimerRef.current) {
+//       clearTimeout(batchTimerRef.current);
+//     }
+//     if (updateQueueRef.current.length > 0) {
+//       flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
       
-    }
-  };
-}, []);
+//     }
+//   };
+// }, []);
 
   useEffect(() => {
     if (!accessToken) {
