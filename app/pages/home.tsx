@@ -4,7 +4,6 @@ import { AddTodo, CompleteTodo, DeleteTodo,UpdateTodo } from "@/hooks/todo";
 import { AddNewCategory, DeleteCategory } from "@/hooks/category";
 import Card from "@/components/card";
 import type {  Container } from "@/type/todo";
-import { updateCategory} from "@/app/(action)/action";
 import { createClient } from "@/app/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -39,8 +38,7 @@ import { updateCategoriesBulk } from "@/hooks/bulkCategory";
 
 
 
-export default function TodoHome({todos, categories, accessToken,isViewer,boardId}:any) {
-  // const { todos, categories, accessToken } = useAppContext(); 
+export default function TodoHome({todos, categories, accessToken,isViewer,boardId}:any) { 
   const [todo, setTodo] = useState("");
   const [category, setCategory] = useState<string>("");
   const [modalTodo, setModalTodo] = useState("");
@@ -59,7 +57,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   const isSyncingRef = useRef(false);
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const latestContainersRef = useRef<Container[]>([]);
-  const optimisticRef = useRef<Container[] | null>(null);
   const updateQueueRef = useRef<any[]>([]);
   const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const latestTodosRef = useRef(todos);
@@ -99,12 +96,7 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           Object.fromEntries(
             merged.map(item => [item.id, item]) 
           )
-        );
-        // updateQueueRef.current = Object.values(
-        //   Object.fromEntries(
-        //     items.map(item => [item.id, item])
-        //   ));
-
+        )
     BatchUpdate({
       items : updateQueueRef.current,
       updateQueueRef,batchTimerRef})
@@ -212,247 +204,68 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
 
 
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { active, over } = event;
-      if (!over) return;
-      if (isCategoryDrag(active.id)) return;
-      const activeId = active.id;
-      const overId = over.id;
-      const activeContainerId = findContainerId(activeId);
-      const overContainerId = findContainerId(overId);
-      if (!activeContainerId || !overContainerId) return;
-      if (activeContainerId === overContainerId && activeId !== overId) {
-        return;
+ const handleDragOver = useCallback((event: DragOverEvent) => {
+  const { active, over } = event;
+  if (!over) return;
+
+  if (isCategoryDrag(active.id)) return;
+
+  const activeId = active.id;
+  const overId = over.id;
+
+  const activeContainerId = findContainerId(activeId);
+  const overContainerId = findContainerId(overId);
+
+  if (!activeContainerId || !overContainerId) return;
+
+  if (activeContainerId === overContainerId) return;
+
+  setContainers((prev) => {
+    const activeContainer = prev.find(c => c.id === activeContainerId);
+    const overContainer = prev.find(c => c.id === overContainerId);
+    if (!activeContainer || !overContainer) return prev;
+
+    const activeItem = activeContainer.items.find(i => i.id === activeId);
+    if (!activeItem) return prev;
+
+    return prev.map(container => {
+      if (container.id === activeContainerId) {
+        return {
+          ...container,
+          items: container.items.filter(i => i.id !== activeId),
+        };
       }
-      if (activeContainerId === overContainerId) return;
-      setContainers((prev) => {
-        const activeContainer = prev.find((c) => c.id === activeContainerId);
-        if (!activeContainer) return prev;
 
-        const activeItem = activeContainer.items.find(
-          (item) => item.id === activeId,
-        );
-        if (!activeItem) return prev;
-        const newContainers = prev.map((container) => {
-          if (container.id === activeContainerId) {
-            return {
-              ...container, items: container.items.filter((item) => item.id !== activeId),
-            };
-          }
-          if (container.id === overContainerId) {
-            if (overId === overContainerId) {
-              return { ...container, items: [...container.items, activeItem],
-              };
-            }
-            const overItemIndex = container.items.findIndex(
-              (item) => item.id === overId,
-            );
-            if (overItemIndex !== -1) {
-              const activeItemCopy = { ...activeItem };
-              return {
-                ...container,
-                items: [
-                  ...container.items.slice(0, overItemIndex + 1),
+      if (container.id === overContainerId) {
+        const overIndex = container.items.findIndex(i => i.id === overId);
+
+        return {
+          ...container,
+          items:
+            overIndex === -1
+              ? [...container.items, activeItem]
+              : [
+                  ...container.items.slice(0, overIndex),
                   activeItem,
-                  ...container.items.slice(overItemIndex + 1),
+                  ...container.items.slice(overIndex),
                 ],
-              };
-            }
-          }
+        };
+      }
 
-          return container;
-        });
-        return newContainers;
-         
-      });
-    },
-    [containers],
-  );
-
-  // const handleDragEnd = useCallback(
-  //   async (event: DragEndEvent) => {
-  //     const { active, over } = event;
-  //     if (!over) {
-  //       setActiveId(null);
-  //       return;
-  //     }
-
-
-  //     if (isCategoryDrag(active.id)) {
-  //       handleCategoryDragEnd(event);
-  //       setActiveId(null);
-  //       return;
-  //     }
-
-  //     const activeContainerId = findContainerId(active.id);
-  //     const overContainerId = findContainerId(over.id);
-
-  //     console.log("activeContainerId",activeContainerId)
-  //     console.log("overContainerId",overContainerId)
-
-      
-
-  //     if (!activeContainerId || !overContainerId) {
-  //       setActiveId(null);
-  //       return;
-  //     }
-
-  //     const latestContainers = [...containers];
-
-  //     const sourceContainer = latestContainers.find((c) => c.id === activeContainerId);
-  //     const destinationContainer = latestContainers.find((c) => c.id === overContainerId);
-  //     if (!sourceContainer || !destinationContainer) {
-  //       setActiveId(null);
-  //       return;
-  //     }
-
-  //     // REORDER
-  //     if (activeContainerId !== overContainerId) {
-
-  //       const activeIndex = sourceContainer.items.findIndex(
-  //         (item) => item.id === active.id,
-  //       );
-
-  //       const overIndex = sourceContainer.items.findIndex(
-  //         (item) => item.id === over.id,
-  //       );
-
-  //       if (activeIndex !== -1 && overIndex !== -1) {
-  //         const newItems = arrayMove(
-  //           sourceContainer.items,
-  //           activeIndex,
-  //           overIndex,
-  //         );
-
-  //         // for optimistic ui
-  //         const nextState = (() => {
-  //           const latestContainers = [...containers];
-  //           const sourceContainer = latestContainers.find(
-  //             (c) => c.id === activeContainerId,
-  //           );
-  //           const destinationContainer = latestContainers.find(
-  //             (c) => c.id === overContainerId,
-  //           );
-  //           if (!sourceContainer || !destinationContainer)
-  //             return latestContainers;
-  //           if (activeContainerId === overContainerId) {
-  //             const activeIndex = sourceContainer.items.findIndex( (item) => item.id === active.id);
-  //             const overIndex = sourceContainer.items.findIndex( (item) => item.id === over.id);
-  //             const newItems = arrayMove(
-  //               sourceContainer.items,
-  //               activeIndex,
-  //               overIndex,
-  //             );
-
-  //             return latestContainers.map((c) =>
-  //               c.id === activeContainerId ? { ...c, items: newItems } : c,
-  //             );
-  //           }
-
-  //           return latestContainers;
-  //         })();
-
-  //         optimisticRef.current = nextState;
-  //         setContainers(nextState);
-  //         // DB update
-  //         try {
-  //           scheduleBatchUpdate(
-  //             newItems.map((item, index) => ({
-  //               id: Number(item.id),
-  //               position: index,
-  //               category_id: Number(activeContainerId),
-  //             })),
-  //           );
-            
-  //         } catch (err:any) {
-  //           console.error("DB update failed reorder", err.message);
-  //         }
-  //       }
-  //     } 
-  //     else {
-  //       console.log("movedItem")
-  //       const movedItem = sourceContainer.items.find(
-  //         (item) => item.id === active.id,
-  //       );
-
-
-  //       if (!movedItem) {
-  //         setActiveId(null);
-  //         return;
-  //       }
-
-  //       let newIndex = destinationContainer.items.length;
-
-  //       if (over.id !== overContainerId) {
-  //         const overIndex = destinationContainer.items.findIndex(
-  //           (item) => item.id === over.id,
-  //         );
-  //         if (overIndex !== -1) {
-  //           newIndex = overIndex;
-  //         }
-  //       }
-
-  //       try {
-  //         // const updatedSourceItems = sourceContainer.items
-  //         //     .filter(item => item.id !== active.id)
-  //         //     .map((item, index) => ({
-  //         //       id: Number(item.id),
-  //         //       position: index,
-  //         //       category_id: Number(activeContainerId),
-  //         //     }));
-
-  //         //   const updatedDestinationItems = [
-  //         //     ...destinationContainer.items.slice(0, newIndex),
-  //         //     movedItem,
-  //         //     ...destinationContainer.items.slice(newIndex),
-  //         //   ].map((item, index) => ({
-  //         //     id: Number(item.id),
-  //         //     position: index,
-  //         //     category_id: Number(overContainerId),
-  //         //   }));
-
-  //         //   scheduleBatchUpdate([
-  //         //     ...updatedSourceItems,
-  //         //     ...updatedDestinationItems,
-  //         //   ]);
+      return container;
+    });
+  });
+}, [containers]);
 
 
 
 
-  //         scheduleBatchUpdate([
-  //           {
-  //             id: Number(movedItem.id),
-  //             position: newIndex,
-  //             category_id: Number(overContainerId),
-  //           },
-  //         ]);
-  //       } catch (err) {
-  //         console.error("DB update failed move", err);
-  //       }
-  //     }
-
-  //     setActiveId(null);
-
-  //     isDraggingRef.current = false;   
-  //     isSyncingRef.current = false;    
-  //     optimisticRef.current = null;
-  //     await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
-
-  //     updateQueueRef.current = [];
-  //   },
-  //   [containers],
-  // );
-
-
-
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+const handleDragEnd = useCallback(async (event: DragEndEvent) => {
   const { active, over } = event;
   if (!over) {
     setActiveId(null);
     return;
   }
-
   if (isCategoryDrag(active.id)) {
     handleCategoryDragEnd(event);
     setActiveId(null);
@@ -460,65 +273,46 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   }
 
   const sourceContainerId = findContainerId(active.id);
-
-  const destinationContainerId = String(over.id).startsWith("cat-")
-    ? String(over.id).replace("cat-", "")
-    : findContainerId(over.id);
+  const destinationContainerId = findContainerId(over.id);
 
   if (!sourceContainerId || !destinationContainerId) {
     setActiveId(null);
     return;
   }
 
-  const newContainers = [...containers];
+  if (sourceContainerId === destinationContainerId) {
+    const container = containers.find(c => c.id === sourceContainerId);
+    if (!container) return;
 
-  const source = newContainers.find(c => c.id === sourceContainerId);
-  const dest = newContainers.find(c => c.id === destinationContainerId);
+    const oldIndex = container.items.findIndex(i => i.id === active.id);
+    const newIndex = container.items.findIndex(i => i.id === over.id);
 
-  if (!source || !dest) return;
+    if (oldIndex === -1 || newIndex === -1) return;
 
-  const activeIndex = source.items.findIndex(i => i.id === active.id);
-  if (activeIndex === -1) return;
+    const newItems = arrayMove(container.items, oldIndex, newIndex);
 
-  const movedItem = source.items[activeIndex];
-  source.items.splice(activeIndex, 1);
-  let newIndex = dest.items.length;
+    const newContainers = containers.map(c =>
+      c.id === sourceContainerId ? { ...c, items: newItems } : c
+    );
 
-  if (over.id !== destinationContainerId) {
-    const overIndex = dest.items.findIndex(i => i.id === over.id);
-    if (overIndex !== -1) newIndex = overIndex;
-  }
- 
-  console.log("new Index", newIndex)
-  console.log("activeIndex", activeIndex)
-  
+    setContainers(newContainers);
 
-  dest.items.splice(newIndex, 0, movedItem);
-  setContainers([...newContainers]);
-
-  try {
-    const updatedSource = source.items.map((item, index) => ({
-      id: Number(item.id),
-      position: index,
-      category_id: Number(sourceContainerId),
-    }));
-
-    const updatedDest = dest.items.map((item, index) => ({
-      id: Number(item.id),
-      position: index,
-      category_id: Number(destinationContainerId),
-    }));
-
-    scheduleBatchUpdate([
-      ...updatedSource,
-      ...updatedDest,
-    ]);
-  } catch (err) {
-    console.error("Bulk update failed", err);
+    try {
+      scheduleBatchUpdate(
+        newItems.map((item, index) => ({
+          id: Number(item.id),
+          position: index,
+          category_id: Number(sourceContainerId),
+        }))
+      );
+    } catch (err) {
+      console.error("Reorder failed", err);
+    }
   }
 
   setActiveId(null);
   isDraggingRef.current = false;
+
   await flushBatch({ batchTimerRef, updateQueueRef, isSyncingRef });
   isSyncingRef.current = false;
   updateQueueRef.current = [];
