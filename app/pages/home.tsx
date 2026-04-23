@@ -86,11 +86,24 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
   // for Bulk API call
   const scheduleBatchUpdate = useCallback((items: any[]) => {
-      // new data for solve drag and drop issue 
-    updateQueueRef.current = Object.values(
-      Object.fromEntries(
-        items.map(item => [item.id, item])
-      ));
+
+      const existing = updateQueueRef.current;
+         const merged = [
+            ...existing,
+            ...items
+          ];
+
+        updateQueueRef.current = Object.values(
+          Object.fromEntries(
+            merged.map(item => [item.id, item]) 
+          )
+        );
+
+
+    // updateQueueRef.current = Object.values(
+    //   Object.fromEntries(
+    //     items.map(item => [item.id, item])
+    //   ));
     BatchUpdate({items,updateQueueRef,batchTimerRef})
   }, []);
 
@@ -169,6 +182,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
         id: Number(cat.id),
         position: index,
       }));
+      // isDraggingRef.current = false;   
+      // isSyncingRef.current = false; 
       await updateCategoriesBulk(items);
     } catch (err) {
       console.error("Category bulk update failed", JSON.stringify(err));
@@ -254,8 +269,8 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
           return container;
         });
-
         return newContainers;
+         
       });
     },
     [containers],
@@ -264,7 +279,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
-
       if (!over) {
         setActiveId(null);
         return;
@@ -313,18 +327,14 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
           // for optimistic UI
           const nextState = (() => {
             const latestContainers = [...containers];
-
             const sourceContainer = latestContainers.find(
               (c) => c.id === activeContainerId,
             );
-
             const destinationContainer = latestContainers.find(
               (c) => c.id === overContainerId,
             );
-
             if (!sourceContainer || !destinationContainer)
               return latestContainers;
-
             if (activeContainerId === overContainerId) {
               const activeIndex = sourceContainer.items.findIndex( (item) => item.id === active.id);
               const overIndex = sourceContainer.items.findIndex( (item) => item.id === over.id);
@@ -344,7 +354,6 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
 
           optimisticRef.current = nextState;
           setContainers(nextState);
-
           // DB update
           try {
             scheduleBatchUpdate(
@@ -393,6 +402,9 @@ export default function TodoHome({todos, categories, accessToken,isViewer,boardI
       }
 
       setActiveId(null);
+
+      isDraggingRef.current = false;   
+      isSyncingRef.current = false;    
       optimisticRef.current = null;
       await flushBatch({batchTimerRef,updateQueueRef,isSyncingRef});
     },
@@ -473,6 +485,12 @@ const handleCompleteTodo = async (id: number) => {
 
   setContainers(buildContainers(categories, todos));
 }, [todos,categories]);
+
+
+
+
+
+
 
   useEffect(() => {
     const supabase = createClient();
