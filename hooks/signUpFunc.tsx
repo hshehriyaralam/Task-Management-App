@@ -19,7 +19,6 @@ export const SignUpHandler = async ({
 }: any) => {
   if (loading) return;
   setLoading(true);
-
   const supabase = getSupabaseBrowserClient();
 
   try {

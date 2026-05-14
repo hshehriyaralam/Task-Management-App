@@ -24,6 +24,7 @@ const AddCategoryModal = ({handleCancelModal,handleAddCategory,newCategory,setNe
             </div>
             <form onSubmit={handleAddCategory}>
               <input
+                data-testid="add-new-card"
                 required
                 name="category"
                 type="text"
@@ -34,6 +35,7 @@ const AddCategoryModal = ({handleCancelModal,handleAddCategory,newCategory,setNe
               />
               <div className="flex gap-3">
                 <Button
+                data-testid="addCard-btn"
                   type="submit"
                   className="flex-1 py-5 rounded-lg bg-secondary text-white font-medium hover:bg-secondary/80 transition-all duration-200 text-md  cursor-pointer "
                 >

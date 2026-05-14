@@ -59,6 +59,7 @@ function Header({ userName, isViewer, boardId, token }: any) {
             )}
 
             <Button
+            data-id="LogOut"
               className="bg-secondary  flex items-center   rounded-xl  w-30   py-5  shadow-sm border border-gray-100 font-quicksand font-semibold  text-gray-200   text-md  cursor-pointer   "
               onClick={handleLogOut}
             >

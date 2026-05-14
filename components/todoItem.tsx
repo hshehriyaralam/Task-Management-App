@@ -43,6 +43,7 @@ export default function TodoItem({ todo, handleDelete, handleEdit,handleComplete
 
           />
           <span
+          data-id="fetch-todos"
             className={`text-[15px] text-gray-700 truncate transition-all duration-200 
               text-lg font-semibold
           ${todo.is_complete ? "line-through text-blue-400" : ""}`}
